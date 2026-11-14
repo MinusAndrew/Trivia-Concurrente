@@ -406,6 +406,26 @@ defmodule Trivia.Partida do
   # ── GenServer Info Callbacks (Temporizadores) ────────────────────────
 
   @impl true
+  def handle_info({:timer_ronda, num_ronda, ref}, state) do
+    if state.ronda_abierta and state.pregunta_actual == num_ronda and state.ronda_ref == ref do
+      closed_state = cerrar_ronda(state, :tiempo_expirado)
+      {:noreply, closed_state}
+    else
+      # Temporizador obsoleto de ronda anterior o cancelada: ignorar de forma segura
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:iniciar_siguiente_ronda, _next_round, ref}, state) do
+    if state.estado == :en_curso and not state.ronda_abierta and state.pause_ref == ref do
+      new_state = abrir_ronda(state)
+      {:noreply, new_state}
+    else
+      # Temporizador de pausa obsoleto: ignorar
+      {:noreply, state}
+    end
+  end
+
   def handle_info({:reintentar_persistencia, ref}, state) do
     if state.estado == :pendiente_persistencia and state.retry_ref == ref do
       new_state = intentar_persistencia_y_finalizar(state)
