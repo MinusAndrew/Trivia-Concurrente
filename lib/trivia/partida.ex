@@ -16,6 +16,7 @@ defmodule Trivia.Partida do
   use GenServer
 
   alias Trivia.BancoPreguntas
+  alias Trivia.Persistencia
   alias Trivia.Puntaje
 
   @max_jugadores 4
@@ -87,6 +88,16 @@ defmodule Trivia.Partida do
   def registrar_bot(partida, nombre, pid) when is_pid(pid) do
     GenServer.cast(partida, {:registrar_bot, to_string(nombre), pid})
   end
+
+  @doc """
+  Permite al creador abandonar la partida. Si está en espera, se cancela; si está en curso,
+  se persiste el resultado hasta ese momento y termina.
+  """
+  def abandonar_partida(partida, jugador) do
+    GenServer.call(partida, {:abandonar_partida, jugador})
+  end
+
+  def leave_game(partida, jugador), do: abandonar_partida(partida, jugador)
 
   # ── GenServer Callbacks ─────────────────────────────────────────────
 
@@ -265,9 +276,102 @@ defmodule Trivia.Partida do
     end
   end
 
+  def handle_call({:abandonar_partida, jugador}, _from, state) do
+    jugador_str = to_string(jugador)
+
+    cond do
+      jugador_str == state.creador and state.estado == :esperando ->
+        # Cancela antes de iniciar (sin registrar en results.log)
+        {:stop, :normal, :ok, state}
+
+      jugador_str == state.creador and state.estado == :finalizada ->
+        # Ya finalizada y persistida; terminar normalmente sin duplicar persistencia
+        cancelar_temporizadores(state)
+        {:stop, :normal, :ok, state}
+
+      jugador_str == state.creador and state.estado == :pendiente_persistencia ->
+        # Intentar persistir inmediatamente
+        new_state = intentar_persistencia_y_finalizar(state)
+
+        if new_state.resultado_persistido do
+          cancelar_temporizadores(new_state)
+          {:stop, :normal, :ok, new_state}
+        else
+          {:reply, {:error, {:persistencia_pendiente, new_state.error_persistencia}}, new_state}
+        end
+
+      jugador_str == state.creador and state.estado == :en_curso ->
+        # Abandono con partida en curso
+        # 1. Cancelar temporizadores activos de ronda y pausa
+        cancelar_temporizadores(state)
+
+        # 2. Construir resultado final con los puntajes acumulados hasta el momento
+        ganador = Puntaje.determinar_ganador(state.puntajes)
+        ranking = Puntaje.calcular_ranking(state.puntajes)
+
+        resultado = %{
+          "id" => state.id,
+          "fecha" => DateTime.utc_now() |> DateTime.to_iso8601(),
+          "tema" => to_string(state.tema),
+          "nivel" => to_string(state.nivel),
+          "ganador" => ganador,
+          "puntajes" => state.puntajes
+        }
+
+        # 3. Transicionar fuera de :en_curso (evita quedar en curso con temporizadores cancelados)
+        state_abandonada = %{
+          state
+          | estado: :pendiente_persistencia,
+            ronda_abierta: false,
+            en_pausa: false,
+            timer_ref: nil,
+            pause_timer: nil,
+            resultado_final: resultado,
+            ranking_final: ranking,
+            ganador_final: ganador
+        }
+
+        # 4. Usar la misma ruta unificada de persistencia y reintento
+        new_state = intentar_persistencia_y_finalizar(state_abandonada)
+
+        if new_state.resultado_persistido do
+          # Persistencia exitosa inmediata: termina normalmente y libera al creador
+          cancelar_temporizadores(new_state)
+          {:stop, :normal, :ok, new_state}
+        else
+          # Persistencia falló: permanece en :pendiente_persistencia,
+          # con reintento automático programado y sin liberar al creador
+          {:reply, {:error, {:persistencia_pendiente, new_state.error_persistencia}}, new_state}
+        end
+
+      jugador_str == state.creador ->
+        {:reply, {:error, :partida_no_en_curso}, state}
+
+      true ->
+        {:reply, {:error, :jugador_no_autorizado}, state}
+    end
+  end
+
   # ── GenServer Info Callbacks (Temporizadores) ────────────────────────
 
   @impl true
+  def handle_info({:reintentar_persistencia, ref}, state) do
+    if state.estado == :pendiente_persistencia and state.retry_ref == ref do
+      new_state = intentar_persistencia_y_finalizar(state)
+      {:noreply, new_state}
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_info(:limpiar_y_terminar, state) do
+    if state.estado == :finalizada and state.resultado_persistido do
+      {:stop, :normal, state}
+    else
+      {:noreply, state}
+    end
+  end
+
   def handle_info({:EXIT, _pid, _reason}, state) do
     # Capturar la salida o fallas de bots sin afectar la partida
     {:noreply, state}
@@ -366,6 +470,100 @@ defmodule Trivia.Partida do
     new_state
   end
 
+  defp iniciar_finalizacion(state, final_puntajes) do
+    ganador = Puntaje.determinar_ganador(final_puntajes)
+    ranking = Puntaje.calcular_ranking(final_puntajes)
+
+    resultado = %{
+      "id" => state.id,
+      "fecha" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "tema" => to_string(state.tema),
+      "nivel" => to_string(state.nivel),
+      "ganador" => ganador,
+      "puntajes" => final_puntajes
+    }
+
+    state_preparado = %{
+      state
+      | resultado_final: resultado,
+        ranking_final: ranking,
+        ganador_final: ganador,
+        puntajes: final_puntajes
+    }
+
+    intentar_persistencia_y_finalizar(state_preparado)
+  end
+
+  defp intentar_persistencia_y_finalizar(state) do
+    if state.retry_timer, do: Process.cancel_timer(state.retry_timer)
+
+    persistencia_res =
+      try do
+        Persistencia.registrar_resultado_unico(state.resultado_final, state.persistencia)
+      catch
+        :exit, reason -> {:error, {:persistencia_no_disponible, reason}}
+      end
+
+    case persistencia_res do
+      res when res in [:ok, {:ok, :ya_registrado}] ->
+        notificar_finalizacion_exitosa(state)
+
+        if state.gestor do
+          GenServer.cast(state.gestor, {:partida_finalizada, state.id, state.creador})
+        end
+
+        cleanup_timer =
+          Process.send_after(self(), :limpiar_y_terminar, state.limpieza_ms)
+
+        %{
+          state
+          | estado: :finalizada,
+            resultado_persistido: true,
+            error_persistencia: nil,
+            retry_timer: nil,
+            retry_ref: nil,
+            cleanup_timer: cleanup_timer
+        }
+
+      {:error, reason} ->
+        # Persistencia falló: no notificar fin exitoso, no liberar creador,
+        # conservar estado recuperable y programar reintento controlado
+        retry_ref = make_ref()
+
+        retry_timer =
+          Process.send_after(
+            self(),
+            {:reintentar_persistencia, retry_ref},
+            state.reintento_ms
+          )
+
+        %{
+          state
+          | estado: :pendiente_persistencia,
+            resultado_persistido: false,
+            error_persistencia: reason,
+            retry_ref: retry_ref,
+            retry_timer: retry_timer
+        }
+    end
+  end
+
+  defp notificar_finalizacion_exitosa(state) do
+    notificacion_final =
+      {:fin_partida,
+       %{
+         partida_id: state.id,
+         tema: state.tema,
+         nivel: state.nivel,
+         ganador: state.ganador_final,
+         ranking: state.ranking_final,
+         puntajes: state.puntajes
+       }}
+
+    notificar(state, notificacion_final)
+    notificar_bots(state, notificacion_final)
+  end
+
   # ── Helpers privados ────────────────────────────────────────────────
 
   defp tiempo_actual_ms(state), do: state.reloj_fun.()
@@ -406,6 +604,13 @@ defmodule Trivia.Partida do
   end
 
   defp enviar_seguro(_otro, _payload), do: :ok
+
+  defp cancelar_temporizadores(state) do
+    if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
+    if state.pause_timer, do: Process.cancel_timer(state.pause_timer)
+    if state.retry_timer, do: Process.cancel_timer(state.retry_timer)
+    if state.cleanup_timer, do: Process.cancel_timer(state.cleanup_timer)
+  end
 
   defp normalizar_dificultad(:facil), do: :facil
   defp normalizar_dificultad(:dificil), do: :dificil
