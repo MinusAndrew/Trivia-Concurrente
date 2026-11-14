@@ -15,6 +15,10 @@ defmodule Trivia.Partida do
   """
   use GenServer
 
+  @max_jugadores 4
+  @max_bots 3
+  @dificultades_validas [:facil, :dificil, "facil", "dificil"]
+
   # ── Especificación para DynamicSupervisor ──────────────────────────
 
   def child_spec(args) do
@@ -43,6 +47,32 @@ defmodule Trivia.Partida do
   end
 
   def obtener_info(partida), do: obtener_estado(partida)
+
+  @doc """
+  Agrega un bot a la partida con la dificultad especificada (`:facil` o `:dificil`).
+  Solo permitido en estado `:esperando` y mientras haya cupo (< 4 jugadores).
+  """
+  def agregar_bot(partida, dificultad \\ :facil) do
+    GenServer.call(partida, {:agregar_bot, dificultad})
+  end
+
+  def add_bot(partida, dificultad \\ :facil), do: agregar_bot(partida, dificultad)
+
+  @doc """
+  Registra un proceso oyente para recibir notificaciones de la partida.
+  """
+  def registrar_oyente(partida, pid) when is_pid(pid) do
+    GenServer.call(partida, {:registrar_oyente, pid})
+  end
+
+  def register_listener(partida, pid), do: registrar_oyente(partida, pid)
+
+  @doc """
+  Registra el PID de un bot asociado a su nombre dentro de la partida.
+  """
+  def registrar_bot(partida, nombre, pid) when is_pid(pid) do
+    GenServer.cast(partida, {:registrar_bot, to_string(nombre), pid})
+  end
 
   # ── GenServer Callbacks ─────────────────────────────────────────────
 
@@ -124,14 +154,87 @@ defmodule Trivia.Partida do
     {:reply, state, state}
   end
 
+  def handle_call({:registrar_oyente, pid}, _from, state) do
+    listeners = if pid in state.listeners, do: state.listeners, else: [pid | state.listeners]
+    {:reply, :ok, %{state | listeners: listeners}}
+  end
+
+  def handle_call({:registrar_bot, nombre, pid}, _from, state) do
+    nombre_str = to_string(nombre)
+    bot_pids = Map.put(state.bot_pids, nombre_str, pid)
+    {:reply, :ok, %{state | bot_pids: bot_pids}}
+  end
+
+  def handle_call({:agregar_bot, dificultad}, _from, state) do
+    cond do
+      state.estado != :esperando ->
+        {:reply, {:error, :partida_en_curso}, state}
+
+      length(state.jugadores) >= @max_jugadores or length(state.bots) >= @max_bots ->
+        {:reply, {:error, :partida_llena}, state}
+
+      dificultad not in @dificultades_validas ->
+        {:reply, {:error, :dificultad_invalida}, state}
+
+      true ->
+        dif_norm = normalizar_dificultad(dificultad)
+        bot_num = length(state.bots) + 1
+        bot_nombre = "bot_#{bot_num}"
+
+        # Iniciar el proceso autónomo del bot
+        bot_args = [
+          nombre: bot_nombre,
+          dificultad: dif_norm,
+          partida: self()
+        ]
+
+        bot_args =
+          if Map.has_key?(state, :bot_opts) and is_list(state.bot_opts) do
+            Keyword.merge(bot_args, state.bot_opts)
+          else
+            bot_args
+          end
+
+        case Trivia.Bot.start_link(bot_args) do
+          {:ok, bot_pid} ->
+            nuevo_bot = %{nombre: bot_nombre, dificultad: dif_norm}
+            bot_pids = Map.put(state.bot_pids, bot_nombre, bot_pid)
+
+            updated_state = %{
+              state
+              | bots: state.bots ++ [nuevo_bot],
+                bot_pids: bot_pids,
+                jugadores: state.jugadores ++ [bot_nombre],
+                puntajes: Map.put(state.puntajes, bot_nombre, 0)
+            }
+
+            {:reply, {:ok, bot_nombre}, updated_state}
+
+          {:error, reason} ->
+            {:reply, {:error, {:fallo_iniciar_bot, reason}}, state}
+        end
+    end
+  end
+
   # ── GenServer Info Callbacks (Temporizadores) ────────────────────────
 
   @impl true
+  def handle_info({:EXIT, _pid, _reason}, state) do
+    # Capturar la salida o fallas de bots sin afectar la partida
+    {:noreply, state}
+  end
+
   def handle_info(_other, state) do
     {:noreply, state}
   end
 
   @impl true
+  def handle_cast({:registrar_bot, nombre, pid}, state) do
+    nombre_str = to_string(nombre)
+    bot_pids = Map.put(state.bot_pids, nombre_str, pid)
+    {:noreply, %{state | bot_pids: bot_pids}}
+  end
+
   def handle_cast(_other, state) do
     {:noreply, state}
   end
@@ -146,4 +249,12 @@ defmodule Trivia.Partida do
 
     :ok
   end
+
+  # ── Helpers privados ────────────────────────────────────────────────
+
+  defp normalizar_dificultad(:facil), do: :facil
+  defp normalizar_dificultad(:dificil), do: :dificil
+  defp normalizar_dificultad("facil"), do: :facil
+  defp normalizar_dificultad("dificil"), do: :dificil
+  defp normalizar_dificultad(other), do: other
 end
