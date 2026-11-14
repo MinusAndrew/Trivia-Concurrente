@@ -1,0 +1,674 @@
+[
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuánto es 2 + 3?",
+    "opciones": {"A": "4", "B": "5", "C": "6", "D": "7"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuánto es 9 - 4?",
+    "opciones": {"A": "3", "B": "4", "C": "5", "D": "6"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuánto es 3 × 4?",
+    "opciones": {"A": "7", "B": "10", "C": "12", "D": "14"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuánto es 20 ÷ 5?",
+    "opciones": {"A": "3", "B": "4", "C": "5", "D": "6"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el doble de 7?",
+    "opciones": {"A": "12", "B": "13", "C": "14", "D": "15"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuánto es 15 + 8?",
+    "opciones": {"A": "21", "B": "22", "C": "23", "D": "24"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuánto es 6 × 6?",
+    "opciones": {"A": "30", "B": "32", "C": "34", "D": "36"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es la mitad de 18?",
+    "opciones": {"A": "7", "B": "8", "C": "9", "D": "10"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es la raíz cuadrada de 144?",
+    "opciones": {"A": "10", "B": "11", "C": "12", "D": "14"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuánto es 15% de 200?",
+    "opciones": {"A": "20", "B": "25", "C": "30", "D": "35"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "Si x + 5 = 12, ¿cuánto vale x?",
+    "opciones": {"A": "5", "B": "6", "C": "7", "D": "8"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuánto es 2^5?",
+    "opciones": {"A": "16", "B": "25", "C": "32", "D": "64"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es el máximo común divisor de 12 y 18?",
+    "opciones": {"A": "3", "B": "4", "C": "6", "D": "9"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuántos grados tiene un triángulo internamente?",
+    "opciones": {"A": "90", "B": "180", "C": "270", "D": "360"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es el área de un rectángulo de 5 cm por 8 cm?",
+    "opciones": {"A": "13 cm²", "B": "26 cm²", "C": "35 cm²", "D": "40 cm²"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuánto es 3/4 + 1/4?",
+    "opciones": {"A": "1/2", "B": "3/4", "C": "1", "D": "4/4"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es la derivada de f(x) = x³?",
+    "opciones": {"A": "x²", "B": "2x²", "C": "3x²", "D": "3x³"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es el determinante de la matriz [[1,2],[3,4]]?",
+    "opciones": {"A": "-2", "B": "-1", "C": "0", "D": "2"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es la integral de 2x dx?",
+    "opciones": {"A": "x + C", "B": "x² + C", "C": "2x² + C", "D": "x²/2 + C"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es el límite de (1 + 1/n)^n cuando n tiende a infinito?",
+    "opciones": {"A": "1", "B": "2", "C": "e", "D": "π"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuántas permutaciones tiene un conjunto de 5 elementos?",
+    "opciones": {"A": "25", "B": "60", "C": "100", "D": "120"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "En un triángulo rectángulo con catetos 3 y 4, ¿cuánto mide la hipotenusa?",
+    "opciones": {"A": "4", "B": "5", "C": "6", "D": "7"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es el valor de log₂(64)?",
+    "opciones": {"A": "4", "B": "5", "C": "6", "D": "8"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "matematicas",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuántas combinaciones de 3 elementos se pueden formar de un conjunto de 6?",
+    "opciones": {"A": "15", "B": "18", "C": "20", "D": "24"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el símbolo químico del agua?",
+    "opciones": {"A": "O2", "B": "H2O", "C": "CO2", "D": "HO"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿Cuántos planetas tiene el sistema solar?",
+    "opciones": {"A": "7", "B": "8", "C": "9", "D": "10"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿Qué gas respiramos principalmente?",
+    "opciones": {"A": "Hidrógeno", "B": "Dióxido de carbono", "C": "Oxígeno", "D": "Nitrógeno"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el planeta más cercano al Sol?",
+    "opciones": {"A": "Venus", "B": "Marte", "C": "Mercurio", "D": "Tierra"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿De qué color son las hojas de las plantas generalmente?",
+    "opciones": {"A": "Azul", "B": "Rojo", "C": "Amarillo", "D": "Verde"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿Cuántos huesos tiene el cuerpo humano adulto aproximadamente?",
+    "opciones": {"A": "106", "B": "156", "C": "206", "D": "256"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿Qué órgano bombea la sangre en el cuerpo?",
+    "opciones": {"A": "Pulmón", "B": "Hígado", "C": "Cerebro", "D": "Corazón"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "basico",
+    "enunciado": "¿En qué estado se encuentra el hielo?",
+    "opciones": {"A": "Líquido", "B": "Gaseoso", "C": "Sólido", "D": "Plasma"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es la unidad de medida de la fuerza en el Sistema Internacional?",
+    "opciones": {"A": "Julio", "B": "Pascal", "C": "Newton", "D": "Vatio"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué partícula subatómica tiene carga negativa?",
+    "opciones": {"A": "Protón", "B": "Neutrón", "C": "Electrón", "D": "Fotón"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es el elemento más abundante en la corteza terrestre?",
+    "opciones": {"A": "Hierro", "B": "Silicio", "C": "Oxígeno", "D": "Aluminio"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué tipo de enlace une los átomos en una molécula de NaCl?",
+    "opciones": {"A": "Covalente", "B": "Iónico", "C": "Metálico", "D": "Puente de hidrógeno"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuántos cromosomas tiene una célula humana normal?",
+    "opciones": {"A": "23", "B": "44", "C": "46", "D": "48"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué ley establece que la energía no se crea ni se destruye?",
+    "opciones": {"A": "Ley de Ohm", "B": "Primera ley de la termodinámica", "C": "Ley de Hooke", "D": "Ley de Coulomb"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es la velocidad de la luz en el vacío aproximadamente?",
+    "opciones": {"A": "300 km/s", "B": "3 000 km/s", "C": "30 000 km/s", "D": "300 000 km/s"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué proceso usan las plantas para producir alimento?",
+    "opciones": {"A": "Respiración", "B": "Fermentación", "C": "Fotosíntesis", "D": "Digestión"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es el principio de incertidumbre de Heisenberg?",
+    "opciones": {"A": "No se puede conocer la masa y la velocidad simultáneamente", "B": "No se puede conocer la posición y el momento simultáneamente con precisión arbitraria", "C": "La energía siempre se conserva en un sistema cerrado", "D": "Toda acción tiene una reacción igual y opuesta"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué partícula es responsable de mediar la fuerza electromagnética?",
+    "opciones": {"A": "Gluón", "B": "Bosón W", "C": "Fotón", "D": "Gravitón"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es el número atómico del uranio?",
+    "opciones": {"A": "82", "B": "88", "C": "92", "D": "94"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué enzima desenrolla el ADN durante la replicación?",
+    "opciones": {"A": "ADN polimerasa", "B": "Ligasa", "C": "Helicasa", "D": "Primasa"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es la constante de Avogadro aproximadamente?",
+    "opciones": {"A": "6.022 × 10²¹", "B": "6.022 × 10²³", "C": "3.14 × 10²³", "D": "6.022 × 10²⁶"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué tipo de radiación tiene mayor poder de penetración?",
+    "opciones": {"A": "Alfa", "B": "Beta", "C": "Gamma", "D": "Infrarroja"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué orgánulo celular es responsable de la síntesis de proteínas?",
+    "opciones": {"A": "Mitocondria", "B": "Ribosoma", "C": "Lisosoma", "D": "Aparato de Golgi"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "ciencias",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es la segunda ley de la termodinámica?",
+    "opciones": {"A": "La energía se conserva", "B": "La entropía de un sistema aislado tiende a aumentar", "C": "A toda acción corresponde una reacción", "D": "La presión y el volumen son inversamente proporcionales"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿En qué año llegó Cristóbal Colón a América?",
+    "opciones": {"A": "1392", "B": "1442", "C": "1492", "D": "1592"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿Qué civilización construyó las pirámides de Giza?",
+    "opciones": {"A": "Romana", "B": "Griega", "C": "Maya", "D": "Egipcia"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿En qué continente se originó la Revolución Industrial?",
+    "opciones": {"A": "América", "B": "Asia", "C": "Europa", "D": "África"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿Quién escribió Don Quijote de la Mancha?",
+    "opciones": {"A": "Lope de Vega", "B": "Miguel de Cervantes", "C": "Gabriel García Márquez", "D": "Federico García Lorca"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿Cuántas guerras mundiales hubo en el siglo XX?",
+    "opciones": {"A": "1", "B": "2", "C": "3", "D": "4"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿Qué país regaló la Estatua de la Libertad a Estados Unidos?",
+    "opciones": {"A": "Inglaterra", "B": "España", "C": "Francia", "D": "Italia"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿En qué siglo cayó el Imperio Romano de Occidente?",
+    "opciones": {"A": "Siglo III", "B": "Siglo V", "C": "Siglo VII", "D": "Siglo IX"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "basico",
+    "enunciado": "¿Quién fue el primer presidente de Estados Unidos?",
+    "opciones": {"A": "Thomas Jefferson", "B": "Abraham Lincoln", "C": "George Washington", "D": "John Adams"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿En qué año comenzó la Revolución Francesa?",
+    "opciones": {"A": "1776", "B": "1789", "C": "1799", "D": "1804"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué tratado puso fin a la Primera Guerra Mundial?",
+    "opciones": {"A": "Tratado de Viena", "B": "Tratado de París", "C": "Tratado de Versalles", "D": "Tratado de Westfalia"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿Quién lideró la independencia de la India del dominio británico?",
+    "opciones": {"A": "Jawaharlal Nehru", "B": "Mahatma Gandhi", "C": "Subhas Chandra Bose", "D": "Bhagat Singh"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿En qué año cayó el Muro de Berlín?",
+    "opciones": {"A": "1985", "B": "1987", "C": "1989", "D": "1991"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué imperio fue gobernado por Solimán el Magnífico?",
+    "opciones": {"A": "Imperio Mongol", "B": "Imperio Persa", "C": "Imperio Otomano", "D": "Imperio Bizantino"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿Quién fue el libertador de gran parte de Sudamérica?",
+    "opciones": {"A": "José de San Martín", "B": "Simón Bolívar", "C": "Bernardo O'Higgins", "D": "Antonio José de Sucre"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué guerra enfrentó al Norte y al Sur de Estados Unidos?",
+    "opciones": {"A": "Guerra de Independencia", "B": "Guerra de los Siete Años", "C": "Guerra Civil", "D": "Guerra Hispanoamericana"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "intermedio",
+    "enunciado": "¿En qué año se fundó la ONU?",
+    "opciones": {"A": "1918", "B": "1939", "C": "1945", "D": "1950"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué acuerdo de 1648 estableció el principio de soberanía estatal en Europa?",
+    "opciones": {"A": "Paz de Augsburgo", "B": "Paz de Westfalia", "C": "Tratado de Utrecht", "D": "Congreso de Viena"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué emperador romano dividió el imperio en Oriente y Occidente?",
+    "opciones": {"A": "Constantino", "B": "Augusto", "C": "Teodosio", "D": "Diocleciano"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué documento de 1215 limitó el poder del rey de Inglaterra?",
+    "opciones": {"A": "Carta de Derechos", "B": "Magna Carta", "C": "Habeas Corpus", "D": "Declaración de Derechos"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué batalla de 1805 consolidó el dominio naval británico?",
+    "opciones": {"A": "Batalla de Waterloo", "B": "Batalla de Lepanto", "C": "Batalla de Trafalgar", "D": "Batalla de Jutlandia"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué plan de 1947 ofreció ayuda económica para la reconstrucción de Europa?",
+    "opciones": {"A": "Plan Dawes", "B": "Plan Marshall", "C": "Plan Morgenthau", "D": "Plan Young"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué revolución de 1917 derrocó al zar Nicolás II?",
+    "opciones": {"A": "Revolución de Febrero", "B": "Revolución de Octubre", "C": "Revolución Francesa", "D": "Revolución Gloriosa"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué civilización desarrolló la escritura cuneiforme?",
+    "opciones": {"A": "Egipcia", "B": "Fenicia", "C": "Sumeria", "D": "China"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "historia",
+    "nivel": "avanzado",
+    "enunciado": "¿En qué año se firmó el Tratado de Tordesillas?",
+    "opciones": {"A": "1480", "B": "1492", "C": "1494", "D": "1500"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el continente más grande del mundo?",
+    "opciones": {"A": "África", "B": "América", "C": "Asia", "D": "Europa"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el océano más grande?",
+    "opciones": {"A": "Atlántico", "B": "Índico", "C": "Ártico", "D": "Pacífico"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es la capital de Francia?",
+    "opciones": {"A": "Londres", "B": "Madrid", "C": "París", "D": "Roma"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿En qué continente está Brasil?",
+    "opciones": {"A": "Europa", "B": "África", "C": "América del Sur", "D": "Asia"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el río más largo del mundo?",
+    "opciones": {"A": "Misisipi", "B": "Amazonas", "C": "Nilo", "D": "Yangtsé"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuántos continentes hay?",
+    "opciones": {"A": "4", "B": "5", "C": "6", "D": "7"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el país más grande del mundo por superficie?",
+    "opciones": {"A": "China", "B": "Estados Unidos", "C": "Canadá", "D": "Rusia"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el desierto más grande del mundo?",
+    "opciones": {"A": "Gobi", "B": "Sahara", "C": "Kalahari", "D": "Atacama"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es la montaña más alta del mundo?",
+    "opciones": {"A": "K2", "B": "Kilimanjaro", "C": "Monte Everest", "D": "Aconcagua"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué país tiene más población en el mundo?",
+    "opciones": {"A": "Estados Unidos", "B": "India", "C": "Indonesia", "D": "China"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿En qué océano se encuentra Madagascar?",
+    "opciones": {"A": "Pacífico", "B": "Atlántico", "C": "Índico", "D": "Ártico"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es el lago más profundo del mundo?",
+    "opciones": {"A": "Lago Victoria", "B": "Lago Superior", "C": "Lago Baikal", "D": "Lago Titicaca"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué estrecho separa Europa de África?",
+    "opciones": {"A": "Estrecho de Magallanes", "B": "Estrecho de Gibraltar", "C": "Estrecho de Bering", "D": "Estrecho de Malaca"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es la capital de Australia?",
+    "opciones": {"A": "Sídney", "B": "Melbourne", "C": "Canberra", "D": "Brisbane"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿En qué cordillera se encuentra el Monte Aconcagua?",
+    "opciones": {"A": "Alpes", "B": "Himalayas", "C": "Rocosas", "D": "Andes"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es el país más pequeño del mundo?",
+    "opciones": {"A": "Mónaco", "B": "San Marino", "C": "Vaticano", "D": "Liechtenstein"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es la fosa oceánica más profunda?",
+    "opciones": {"A": "Fosa de Puerto Rico", "B": "Fosa de Japón", "C": "Fosa de las Marianas", "D": "Fosa de Tonga"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué línea imaginaria divide la Tierra en hemisferio norte y sur?",
+    "opciones": {"A": "Trópico de Cáncer", "B": "Meridiano de Greenwich", "C": "Trópico de Capricornio", "D": "Ecuador"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es la capital de Myanmar?",
+    "opciones": {"A": "Rangún", "B": "Mandalay", "C": "Naipyidó", "D": "Bago"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué país africano tiene la mayor superficie?",
+    "opciones": {"A": "República Democrática del Congo", "B": "Sudán", "C": "Argelia", "D": "Libia"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Cuál es el río más caudaloso del mundo?",
+    "opciones": {"A": "Nilo", "B": "Amazonas", "C": "Congo", "D": "Ganges"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿En qué país se encuentra el punto más bajo de la superficie terrestre?",
+    "opciones": {"A": "Israel", "B": "Jordania", "C": "Etiopía", "D": "Yibuti"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué archipiélago volcánico inspiró la teoría de la evolución de Darwin?",
+    "opciones": {"A": "Hawái", "B": "Canarias", "C": "Galápagos", "D": "Azores"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "geografia",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué país tiene frontera tanto con el océano Atlántico como con el Índico?",
+    "opciones": {"A": "Mozambique", "B": "Sudáfrica", "C": "Tanzania", "D": "Nigeria"},
+    "respuesta": "B"
+  }
+]
