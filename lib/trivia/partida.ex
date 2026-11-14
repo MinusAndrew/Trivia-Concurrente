@@ -15,7 +15,11 @@ defmodule Trivia.Partida do
   """
   use GenServer
 
+  alias Trivia.BancoPreguntas
+  alias Trivia.Puntaje
+
   @max_jugadores 4
+  @min_bots 2
   @max_bots 3
   @dificultades_validas [:facil, :dificil, "facil", "dificil"]
 
@@ -57,6 +61,16 @@ defmodule Trivia.Partida do
   end
 
   def add_bot(partida, dificultad \\ :facil), do: agregar_bot(partida, dificultad)
+
+  @doc """
+  Inicia la partida. Requiere al menos dos bots agregados y estar en estado `:esperando`.
+  Selecciona las preguntas del banco y abre automáticamente la primera ronda.
+  """
+  def iniciar_partida(partida) do
+    GenServer.call(partida, :iniciar_partida)
+  end
+
+  def start_game(partida), do: iniciar_partida(partida)
 
   @doc """
   Registra un proceso oyente para recibir notificaciones de la partida.
@@ -216,6 +230,41 @@ defmodule Trivia.Partida do
     end
   end
 
+  def handle_call(:iniciar_partida, _from, state) do
+    cond do
+      state.estado != :esperando ->
+        {:reply, {:error, :partida_ya_iniciada}, state}
+
+      length(state.bots) < @min_bots ->
+        {:reply, {:error, :minimo_dos_bots}, state}
+
+      true ->
+        case obtener_preguntas_partida(state) do
+          {:ok, preguntas} ->
+            ready_state = %{state | preguntas: preguntas, estado: :en_curso}
+
+            notificar(
+              ready_state,
+              {:partida_iniciada,
+               %{
+                 partida_id: state.id,
+                 tema: state.tema,
+                 nivel: state.nivel,
+                 total: state.total_preguntas,
+                 tiempo_limite: state.tiempo_pregunta,
+                 jugadores: state.jugadores
+               }}
+            )
+
+            started_state = abrir_ronda(ready_state)
+            {:reply, :ok, started_state}
+
+          {:error, _reason} = err ->
+            {:reply, err, state}
+        end
+    end
+  end
+
   # ── GenServer Info Callbacks (Temporizadores) ────────────────────────
 
   @impl true
@@ -250,7 +299,113 @@ defmodule Trivia.Partida do
     :ok
   end
 
+  # ── Ciclo de Rondas y Juego ─────────────────────────────────────────
+
+  defp abrir_ronda(state) do
+    num_ronda = state.pregunta_actual + 1
+    pregunta = Enum.at(state.preguntas, num_ronda - 1)
+
+    if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
+
+    inicio_mono = tiempo_actual_ms(state)
+    ronda_ref = make_ref()
+    tiempo_ms = state.tiempo_pregunta * 1000
+    timer_ref = Process.send_after(self(), {:timer_ronda, num_ronda, ronda_ref}, tiempo_ms)
+
+    new_state = %{
+      state
+      | pregunta_actual: num_ronda,
+        pregunta_actual_data: pregunta,
+        ronda_abierta: true,
+        en_pausa: false,
+        inicio_ronda_mono: inicio_mono,
+        ronda_ref: ronda_ref,
+        timer_ref: timer_ref,
+        pause_ref: nil,
+        pause_timer: nil,
+        respuestas_ronda: %{}
+    }
+
+    # Notificación sin la respuesta correcta (seguridad) para clientes humanos
+    pregunta_cliente = BancoPreguntas.para_cliente(pregunta)
+
+    notificacion_cliente =
+      {:nueva_pregunta,
+       %{
+         partida_id: state.id,
+         numero: num_ronda,
+         total: state.total_preguntas,
+         tema: state.tema,
+         nivel: pregunta["nivel"] || pregunta[:nivel],
+         enunciado: pregunta_cliente["enunciado"] || pregunta_cliente[:enunciado],
+         opciones: pregunta_cliente["opciones"] || pregunta_cliente[:opciones],
+         tiempo_limite: state.tiempo_pregunta
+       }}
+
+    notificar(new_state, notificacion_cliente)
+
+    # Notificación interna para los bots (incluye respuesta correcta para su decisión)
+    resp_correcta = Puntaje.normalizar_respuesta(pregunta["respuesta"] || pregunta[:respuesta])
+    nivel_pregunta = pregunta["nivel"] || pregunta[:nivel]
+
+    notificacion_bot =
+      {:nueva_pregunta,
+       %{
+         partida_id: state.id,
+         numero: num_ronda,
+         total: state.total_preguntas,
+         tema: state.tema,
+         nivel: nivel_pregunta,
+         enunciado: pregunta_cliente["enunciado"] || pregunta_cliente[:enunciado],
+         opciones: pregunta_cliente["opciones"] || pregunta_cliente[:opciones],
+         tiempo_limite: state.tiempo_pregunta,
+         respuesta_correcta: resp_correcta
+       }}
+
+    notificar_bots(new_state, notificacion_bot)
+    new_state
+  end
+
   # ── Helpers privados ────────────────────────────────────────────────
+
+  defp tiempo_actual_ms(state), do: state.reloj_fun.()
+
+  defp obtener_preguntas_partida(%{preguntas_fijadas: p}) when is_list(p) and length(p) > 0 do
+    {:ok, p}
+  end
+
+  defp obtener_preguntas_partida(state) do
+    case BancoPreguntas.cargar_banco(state.persistencia) do
+      {:ok, preguntas} ->
+        BancoPreguntas.sortear_preguntas(
+          preguntas,
+          state.tema,
+          state.nivel,
+          state.total_preguntas
+        )
+
+      {:error, _reason} = err ->
+        err
+    end
+  end
+
+  # Los oyentes pueden ser procesos de clientes en otros nodos. `Process.alive?/1`
+  # solo acepta PIDs locales (lanza ArgumentError con PIDs remotos), así que se
+  # envía directamente: `send` a un proceso muerto es inofensivo y `:noconnect`
+  # evita que la partida intente reconectarse a un nodo de cliente caído.
+  defp notificar(state, payload) do
+    Enum.each(state.listeners, &enviar_seguro(&1, payload))
+  end
+
+  defp notificar_bots(state, payload) do
+    Enum.each(Map.values(state.bot_pids), &enviar_seguro(&1, payload))
+  end
+
+  defp enviar_seguro(pid, payload) when is_pid(pid) do
+    Process.send(pid, payload, [:noconnect])
+  end
+
+  defp enviar_seguro(_otro, _payload), do: :ok
 
   defp normalizar_dificultad(:facil), do: :facil
   defp normalizar_dificultad(:dificil), do: :dificil
