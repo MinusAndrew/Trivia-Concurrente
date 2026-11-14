@@ -1,0 +1,26 @@
+# Build artifacts and dependencies
+/_build/
+/deps/
+/cover/
+/doc/
+*.ez
+/tmp/
+
+# Language server / editor
+/.elixir_ls/
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+.DS_Store
+
+# Crash dumps and local env
+erl_crash.dump
+.env
+.env.*
+
+# Runtime data written by the server (questions.json is tracked)
+/data/users.json
+/data/results.log
