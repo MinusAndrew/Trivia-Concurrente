@@ -74,6 +74,23 @@ defmodule Trivia.Partida do
   def start_game(partida), do: iniciar_partida(partida)
 
   @doc """
+  Envía una respuesta para la ronda en curso.
+  El cálculo de bonificación y validación de plazos se realiza exclusivamente
+  en el servidor mediante su reloj monotónico.
+  """
+  def responder(partida, jugador, respuesta) do
+    GenServer.call(partida, {:responder, jugador, respuesta})
+  end
+
+  def responder(partida, jugador, respuesta, _opts) do
+    # Opciones externas son ignoradas intencionalmente para evitar manipulación de bonificación
+    GenServer.call(partida, {:responder, jugador, respuesta})
+  end
+
+  def answer(partida, jugador, respuesta), do: responder(partida, jugador, respuesta)
+  def answer(partida, jugador, respuesta, _opts), do: responder(partida, jugador, respuesta)
+
+  @doc """
   Registra un proceso oyente para recibir notificaciones de la partida.
   """
   def registrar_oyente(partida, pid) when is_pid(pid) do
@@ -98,6 +115,13 @@ defmodule Trivia.Partida do
   end
 
   def leave_game(partida, jugador), do: abandonar_partida(partida, jugador)
+
+  @doc """
+  Actualiza el puntaje de un jugador en la partida (uso interno/pruebas).
+  """
+  def actualizar_puntaje(partida, jugador, puntos) do
+    GenServer.call(partida, {:actualizar_puntaje, jugador, puntos})
+  end
 
   # ── GenServer Callbacks ─────────────────────────────────────────────
 
@@ -276,6 +300,33 @@ defmodule Trivia.Partida do
     end
   end
 
+  def handle_call({:responder, jugador, respuesta}, from, state) do
+    handle_responder(jugador, respuesta, from, state)
+  end
+
+  def handle_call({:responder, jugador, respuesta, _opts}, from, state) do
+    handle_responder(jugador, respuesta, from, state)
+  end
+
+  def handle_call({:actualizar_puntaje, jugador, puntos}, _from, state) do
+    jugador_str = to_string(jugador)
+
+    cond do
+      state.estado != :en_curso ->
+        {:reply, {:error, :partida_no_en_curso}, state}
+
+      not is_integer(puntos) ->
+        {:reply, {:error, :puntos_invalidos}, state}
+
+      not Map.has_key?(state.puntajes, jugador_str) ->
+        {:reply, {:error, :jugador_no_registrado}, state}
+
+      true ->
+        updated_puntajes = Map.put(state.puntajes, jugador_str, puntos)
+        {:reply, :ok, %{state | puntajes: updated_puntajes}}
+    end
+  end
+
   def handle_call({:abandonar_partida, jugador}, _from, state) do
     jugador_str = to_string(jugador)
 
@@ -403,6 +454,69 @@ defmodule Trivia.Partida do
     :ok
   end
 
+  # ── Lógica de Recepción de Respuestas ───────────────────────────────
+
+  defp handle_responder(jugador, respuesta, _from, state) do
+    jugador_str = to_string(jugador)
+
+    cond do
+      state.estado == :esperando ->
+        {:reply, {:error, :partida_no_iniciada}, state}
+
+      state.estado in [:finalizada, :pendiente_persistencia] ->
+        {:reply, {:error, :partida_finalizada}, state}
+
+      not Map.has_key?(state.puntajes, jugador_str) ->
+        {:reply, {:error, :jugador_no_registrado}, state}
+
+      not state.ronda_abierta ->
+        {:reply, {:error, :ronda_no_abierta}, state}
+
+      true ->
+        now_mono = tiempo_actual_ms(state)
+        elapsed_ms = now_mono - state.inicio_ronda_mono
+        tiempo_limite_ms = state.tiempo_pregunta * 1000
+
+        if elapsed_ms >= tiempo_limite_ms do
+          # El plazo de la ronda ya venció en el servidor, incluso si el mensaje
+          # del temporizador aún no ha sido procesado por el GenServer.
+          # Cerramos la ronda exactamente una vez y rechazamos la respuesta.
+          if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
+          closed_state = cerrar_ronda(state, :tiempo_agotado)
+          {:reply, {:error, :tiempo_agotado}, closed_state}
+        else
+          if not Puntaje.respuesta_valida?(respuesta) do
+            {:reply, {:error, :respuesta_invalida}, state}
+          else
+            if Map.has_key?(state.respuestas_ronda, jugador_str) do
+              {:reply, {:error, :ya_respondio}, state}
+            else
+              letra_norm = Puntaje.normalizar_respuesta(respuesta)
+              elapsed_s = elapsed_ms / 1000.0
+              segundos_restantes = max(0.0, state.tiempo_pregunta - elapsed_s)
+
+              resp_data = %{
+                respuesta: letra_norm,
+                segundos_restantes: segundos_restantes,
+                timestamp: now_mono
+              }
+
+              updated_respuestas = Map.put(state.respuestas_ronda, jugador_str, resp_data)
+              new_state = %{state | respuestas_ronda: updated_respuestas}
+
+              if map_size(updated_respuestas) >= length(state.jugadores) do
+                if new_state.timer_ref, do: Process.cancel_timer(new_state.timer_ref)
+                closed_state = cerrar_ronda(new_state, :todos_respondieron)
+                {:reply, :ok, closed_state}
+              else
+                {:reply, :ok, new_state}
+              end
+            end
+          end
+        end
+    end
+  end
+
   # ── Ciclo de Rondas y Juego ─────────────────────────────────────────
 
   defp abrir_ronda(state) do
@@ -468,6 +582,138 @@ defmodule Trivia.Partida do
 
     notificar_bots(new_state, notificacion_bot)
     new_state
+  end
+
+  defp cerrar_ronda(state, _motivo) do
+    if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
+
+    pregunta = state.pregunta_actual_data
+    resp_correcta = Puntaje.normalizar_respuesta(pregunta["respuesta"] || pregunta[:respuesta])
+    nivel_pregunta = pregunta["nivel"] || pregunta[:nivel]
+
+    {puntos_ronda, detalles_ronda, updated_puntajes} =
+      Enum.reduce(state.jugadores, {%{}, %{}, state.puntajes}, fn jugador,
+                                                                  {pts_acc, det_acc, punt_acc} ->
+        case Map.get(state.respuestas_ronda, jugador) do
+          nil ->
+            puntos =
+              Puntaje.calcular_puntos_ronda(
+                nivel_pregunta,
+                :sin_responder,
+                0,
+                state.tiempo_pregunta
+              )
+
+            pts = Map.put(pts_acc, jugador, puntos)
+
+            det =
+              Map.put(det_acc, jugador, %{
+                resultado: :sin_responder,
+                puntos: puntos,
+                bonificacion: 0,
+                respuesta: nil
+              })
+
+            punt = Map.update(punt_acc, jugador, puntos, &(&1 + puntos))
+            {pts, det, punt}
+
+          %{respuesta: r, segundos_restantes: s_rest} ->
+            if r == resp_correcta do
+              bonif = Puntaje.bonificacion_rapidez(s_rest, state.tiempo_pregunta)
+
+              puntos =
+                Puntaje.calcular_puntos_ronda(
+                  nivel_pregunta,
+                  :correcta,
+                  s_rest,
+                  state.tiempo_pregunta
+                )
+
+              pts = Map.put(pts_acc, jugador, puntos)
+
+              det =
+                Map.put(det_acc, jugador, %{
+                  resultado: :correcta,
+                  puntos: puntos,
+                  bonificacion: bonif,
+                  respuesta: r
+                })
+
+              punt = Map.update(punt_acc, jugador, puntos, &(&1 + puntos))
+              {pts, det, punt}
+            else
+              puntos =
+                Puntaje.calcular_puntos_ronda(
+                  nivel_pregunta,
+                  :incorrecta,
+                  0,
+                  state.tiempo_pregunta
+                )
+
+              pts = Map.put(pts_acc, jugador, puntos)
+
+              det =
+                Map.put(det_acc, jugador, %{
+                  resultado: :incorrecta,
+                  puntos: puntos,
+                  bonificacion: 0,
+                  respuesta: r
+                })
+
+              punt = Map.update(punt_acc, jugador, puntos, &(&1 + puntos))
+              {pts, det, punt}
+            end
+        end
+      end)
+
+    notificacion_cierre =
+      {:fin_ronda,
+       %{
+         partida_id: state.id,
+         numero: state.pregunta_actual,
+         total: state.total_preguntas,
+         respuesta_correcta: resp_correcta,
+         puntos_ronda: puntos_ronda,
+         detalles_ronda: detalles_ronda,
+         puntajes_acumulados: updated_puntajes
+       }}
+
+    notificar(state, notificacion_cierre)
+    notificar_bots(state, notificacion_cierre)
+
+    if state.pregunta_actual < state.total_preguntas do
+      pause_ref = make_ref()
+      next_round = state.pregunta_actual + 1
+
+      pause_timer =
+        Process.send_after(
+          self(),
+          {:iniciar_siguiente_ronda, next_round, pause_ref},
+          state.pausa_ms
+        )
+
+      %{
+        state
+        | ronda_abierta: false,
+          en_pausa: true,
+          pause_ref: pause_ref,
+          pause_timer: pause_timer,
+          timer_ref: nil,
+          puntajes: updated_puntajes
+      }
+    else
+      iniciar_finalizacion(
+        %{
+          state
+          | ronda_abierta: false,
+            en_pausa: false,
+            timer_ref: nil,
+            pause_timer: nil,
+            puntajes: updated_puntajes
+        },
+        updated_puntajes
+      )
+    end
   end
 
   defp iniciar_finalizacion(state, final_puntajes) do
