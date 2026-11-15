@@ -67,26 +67,20 @@ defmodule Trivia.Servidor do
   end
 
   @impl true
-  def handle_call({:peticion, peticion}, {cliente_pid, _tag}, state) do
-    respuesta =
-      case validar(peticion) do
-        {:ok, {:connect, usuario, clave, receptor}} ->
-          conectar(state, usuario, clave, cliente_pid, receptor)
+  def handle_call({:peticion, peticion}, {cliente_pid, _tag} = from, state) do
+    # La identidad sigue saliendo del `from` y se fija aquí, antes de delegar.
+    # Cada petición se atiende en su propio proceso para que una petición lenta
+    # (o un gestor bloqueado) no demore a los demás clientes. Cada cliente espera
+    # su respuesta antes de enviar otra, así que hay a lo sumo una tarea por
+    # cliente y sus peticiones conservan el orden.
+    servidor_pid = self()
 
-        {:ok, comando} ->
-          case protegido(fn -> GestorJugadores.sesion(state.gestor_jugadores, cliente_pid) end) do
-            {:ok, %{usuario: usuario, receptor: receptor}} ->
-              ejecutar(comando, usuario, receptor, cliente_pid, state)
+    {:ok, _tarea} =
+      Task.start(fn ->
+        GenServer.reply(from, atender(peticion, cliente_pid, servidor_pid, state))
+      end)
 
-            {:error, _motivo} = error ->
-              error
-          end
-
-        {:error, _motivo} = error ->
-          error
-      end
-
-    {:reply, respuesta, state}
+    {:noreply, state}
   end
 
   def handle_call(_desconocida, _from, state) do
@@ -98,6 +92,28 @@ defmodule Trivia.Servidor do
 
   @impl true
   def handle_info(_mensaje, state), do: {:noreply, state}
+
+  defp atender(peticion, cliente_pid, servidor_pid, state) do
+    case validar(peticion) do
+      {:ok, {:connect, usuario, clave, receptor}} ->
+        conectar(state, usuario, clave, cliente_pid, receptor, servidor_pid)
+
+      {:ok, comando} ->
+        case protegido(fn -> GestorJugadores.sesion(state.gestor_jugadores, cliente_pid) end) do
+          {:ok, %{usuario: usuario, receptor: receptor}} ->
+            ejecutar(comando, usuario, receptor, cliente_pid, state)
+
+          {:error, _motivo} = error ->
+            error
+        end
+
+      {:error, _motivo} = error ->
+        error
+    end
+  rescue
+    # Un error inesperado no debe dejar al cliente esperando hasta su timeout
+    _error -> {:error, :error_interno}
+  end
 
   # ── Validación de la forma de las peticiones ────────────────────────
 
@@ -130,12 +146,12 @@ defmodule Trivia.Servidor do
 
   # ── Enrutamiento ────────────────────────────────────────────────────
 
-  defp conectar(state, usuario, clave, cliente_pid, receptor) do
+  # `servidor_pid` es el proceso Servidor (no la tarea que atiende la petición):
+  # GestorJugadores lo monitorea para cerrar las sesiones si el servidor cae.
+  defp conectar(state, usuario, clave, cliente_pid, receptor, servidor_pid) do
     # El receptor debe vivir en el mismo nodo que el cliente: un cliente no
     # puede registrar como destino de notificaciones un proceso ajeno.
     if node(receptor) == node(cliente_pid) do
-      servidor_pid = self()
-
       case protegido(fn ->
              GestorJugadores.conectar(
                state.gestor_jugadores,
