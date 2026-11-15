@@ -233,4 +233,66 @@ defmodule Trivia.NivelTest do
       assert Trivia.Nivel.reparto(:avanzado, 10) == %{basico: 0, intermedio: 3, avanzado: 7}
     end
   end
+
+  # ── estadisticas_jugador/2 (comando score) ──────────────────────────
+
+  describe "estadisticas_jugador/2" do
+    setup do
+      historial = [
+        %{"tema" => "ciencia", "puntajes" => %{"ana" => 50, "bot_1" => 20}},
+        %{"tema" => "historia", "puntajes" => %{"ana" => -10, "beto" => 30}},
+        %{"tema" => "ciencia", "puntajes" => %{"ana" => 30}},
+        %{"tema" => "historia", "puntajes" => %{"beto" => 15}},
+        %{"tema" => "geografia", "puntajes" => %{"ana" => 200}}
+      ]
+
+      %{historial: historial}
+    end
+
+    test "suma puntaje total, partidas jugadas y nivel por tema", %{historial: h} do
+      assert Trivia.Nivel.estadisticas_jugador(h, "ana") == %{
+               usuario: "ana",
+               puntaje_total: 270,
+               partidas_jugadas: 4,
+               temas: [
+                 %{tema: "ciencia", puntaje: 80, nivel: :intermedio},
+                 %{tema: "geografia", puntaje: 200, nivel: :avanzado},
+                 %{tema: "historia", puntaje: -10, nivel: :basico}
+               ]
+             }
+    end
+
+    test "solo cuenta las partidas en las que aparece el jugador", %{historial: h} do
+      stats = Trivia.Nivel.estadisticas_jugador(h, "beto")
+      assert stats.partidas_jugadas == 2
+      assert stats.puntaje_total == 45
+      assert stats.temas == [%{tema: "historia", puntaje: 45, nivel: :basico}]
+    end
+
+    test "un jugador sin partidas y un bot no tienen estadísticas", %{historial: h} do
+      vacio = %{puntaje_total: 0, partidas_jugadas: 0, temas: []}
+
+      assert Map.drop(Trivia.Nivel.estadisticas_jugador(h, "nadie"), [:usuario]) == vacio
+      assert Map.drop(Trivia.Nivel.estadisticas_jugador(h, "bot_1"), [:usuario]) == vacio
+      assert Map.drop(Trivia.Nivel.estadisticas_jugador([], "ana"), [:usuario]) == vacio
+    end
+
+    test "acepta líneas NDJSON, ignora puntajes no numéricos y agrupa registros sin tema" do
+      h = [
+        Jason.encode!(%{"tema" => "ciencia", "puntajes" => %{"ana" => 25}}),
+        %{"tema" => "ciencia", "puntajes" => %{"ana" => "muchos"}},
+        %{"puntajes" => %{"ana" => 5}},
+        "linea que no es JSON"
+      ]
+
+      stats = Trivia.Nivel.estadisticas_jugador(h, "ana")
+      assert stats.partidas_jugadas == 2
+      assert stats.puntaje_total == 30
+
+      assert stats.temas == [
+               %{tema: "ciencia", puntaje: 25, nivel: :basico},
+               %{tema: "desconocido", puntaje: 5, nivel: :basico}
+             ]
+    end
+  end
 end

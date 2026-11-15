@@ -689,4 +689,29 @@ defmodule Trivia.PartidasTest do
       assert estado.puntajes["bot_1"] == 20
     end
   end
+
+  # ── 14. start_game sobre una partida ya iniciada ────────────────────
+
+  describe "start_game sobre una partida ya iniciada" do
+    test "retorna :partida_ya_iniciada y no altera la partida en curso", %{gestor: g} do
+      {:ok, _id, _} = GestorPartidas.crear_partida(g, "pedro", "ciencias", 5, 15)
+      {:ok, "bot_1"} = GestorPartidas.agregar_bot(g, "pedro", :facil)
+      {:ok, "bot_2"} = GestorPartidas.agregar_bot(g, "pedro", :dificil)
+      assert :ok = GestorPartidas.iniciar_partida(g, "pedro")
+
+      {:ok, antes} = GestorPartidas.obtener_estado_partida(g, "pedro")
+      assert antes.estado == :en_curso
+
+      # A través del gestor y directamente sobre el proceso de la partida
+      assert {:error, :partida_ya_iniciada} = GestorPartidas.iniciar_partida(g, "pedro")
+      {:ok, pid} = GestorPartidas.obtener_pid_partida(g, "pedro")
+      assert {:error, :partida_ya_iniciada} = Partida.iniciar_partida(pid)
+
+      # Las preguntas sorteadas y la ronda abierta no cambian
+      {:ok, despues} = GestorPartidas.obtener_estado_partida(g, "pedro")
+      assert despues.estado == :en_curso
+      assert despues.preguntas == antes.preguntas
+      assert despues.pregunta_actual == antes.pregunta_actual
+    end
+  end
 end
