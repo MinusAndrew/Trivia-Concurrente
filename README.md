@@ -265,7 +265,7 @@ Sesión cerrada correctamente.
 
 Durante el desarrollo de este proyecto se utilizaron herramientas de asistencia de inteligencia artificial con los siguientes propósitos:
 
-* **Herramienta utilizada**: Asistente de codificación con IA (Antigravity / LLM).
+* **Herramienta utilizada**: Asistente de codificación con IA (Antigravity / LLM) Y Claude Code CLI.
 * **Propósito**:
   * Estructuración incremental por hitos de los módulos Elixir/OTP (`GenServer`, `Supervisor`, `DynamicSupervisor`) siguiendo la arquitectura definida en `proyecto20262.md`.
   * Generación y endurecimiento de pruebas automatizadas con `ExUnit` y nodos distribuidos con `:peer`.
