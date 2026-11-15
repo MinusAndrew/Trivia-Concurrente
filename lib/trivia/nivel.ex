@@ -27,6 +27,24 @@ defmodule Trivia.Nivel do
   end
 
   @doc """
+  Convierte un nivel (`:basico`, `"basico"`, ...) a su átomo. Es la única
+  conversión de niveles del proyecto: nunca crea átomos a partir de texto
+  arbitrario y lanza `ArgumentError` ante un nivel desconocido.
+  """
+  @spec normalizar(term()) :: :basico | :intermedio | :avanzado
+  def normalizar(:basico), do: :basico
+  def normalizar(:intermedio), do: :intermedio
+  def normalizar(:avanzado), do: :avanzado
+  def normalizar("basico"), do: :basico
+  def normalizar("intermedio"), do: :intermedio
+  def normalizar("avanzado"), do: :avanzado
+
+  def normalizar(otro) do
+    raise ArgumentError,
+          "nivel inválido: #{inspect(otro)}. Debe ser :basico, :intermedio o :avanzado"
+  end
+
+  @doc """
   Distribuye `total` preguntas según el nivel del jugador:
 
     * `:basico`: 70% basico, 30% intermedio, 0% avanzado.
@@ -48,19 +66,9 @@ defmodule Trivia.Nivel do
     %{basico: 0, intermedio: 0, avanzado: 0}
   end
 
-  def reparto(total, nivel)
-      when is_integer(total) and total <= 0 and (is_atom(nivel) or is_binary(nivel)) do
-    %{basico: 0, intermedio: 0, avanzado: 0}
-  end
-
   def reparto(nivel, total)
       when is_integer(total) and (is_atom(nivel) or is_binary(nivel)) do
-    do_reparto(normalize_nivel(nivel), total)
-  end
-
-  def reparto(total, nivel)
-      when is_integer(total) and (is_atom(nivel) or is_binary(nivel)) do
-    do_reparto(normalize_nivel(nivel), total)
+    do_reparto(normalizar(nivel), total)
   end
 
   defp do_reparto(:basico, total) do
@@ -85,23 +93,14 @@ defmodule Trivia.Nivel do
   end
 
   @doc """
-  Calcula los puntos acumulados por un usuario en un tema específico
-  a partir del historial de partidas.
+  Calcula los puntos acumulados por `usuario` en `tema` a partir del historial
+  de partidas. Los argumentos van siempre en ese orden: `(historial, usuario, tema)`.
 
   Soporta tanto registros en memoria (mapas) como líneas en formato NDJSON.
   Los puntajes históricos pueden ser negativos. Si el usuario nunca ha jugado
   ese tema o el historial está vacío, devuelve 0.
   """
-  def puntaje_por_tema(arg1, arg2, arg3) do
-    {historial, val1, val2} =
-      cond do
-        is_list(arg1) -> {arg1, arg2, arg3}
-        is_list(arg3) -> {arg3, arg1, arg2}
-        is_list(arg2) -> {arg2, arg1, arg3}
-        true -> {[], arg1, arg2}
-      end
-
-    {usuario, tema} = identificar_usuario_y_tema(historial, val1, val2)
+  def puntaje_por_tema(historial, usuario, tema) when is_list(historial) do
     usuario_str = to_string(usuario)
 
     # Los bots no se cuentan en las estadísticas históricas de jugadores
@@ -210,32 +209,6 @@ defmodule Trivia.Nivel do
     }
   end
 
-  defp identificar_usuario_y_tema(historial, val1, val2) do
-    str1 = to_string(val1)
-    str2 = to_string(val2)
-
-    records = parse_history_records(historial)
-
-    temas =
-      records
-      |> Enum.map(fn record -> extract_tema(record) end)
-      |> Enum.reject(fn tema -> is_nil(tema) end)
-      |> Enum.map(fn tema -> to_string(tema) end)
-      |> Enum.uniq()
-
-    cond do
-      str2 in temas and str1 not in temas ->
-        {val1, val2}
-
-      str1 in temas and str2 not in temas ->
-        {val2, val1}
-
-      true ->
-        # Asunción por defecto: primero usuario, segundo tema
-        {val1, val2}
-    end
-  end
-
   defp calcular_puntaje_acumulado(historial, usuario, tema) do
     historial
     |> parse_history_records()
@@ -308,17 +281,5 @@ defmodule Trivia.Nivel do
     Enum.find_value(map, :error, fn {k, v} ->
       if to_string(k) == key_str, do: {:ok, v}, else: nil
     end)
-  end
-
-  defp normalize_nivel(:basico), do: :basico
-  defp normalize_nivel(:intermedio), do: :intermedio
-  defp normalize_nivel(:avanzado), do: :avanzado
-  defp normalize_nivel("basico"), do: :basico
-  defp normalize_nivel("intermedio"), do: :intermedio
-  defp normalize_nivel("avanzado"), do: :avanzado
-
-  defp normalize_nivel(other) do
-    raise ArgumentError,
-          "nivel inválido: #{inspect(other)}. Debe ser :basico, :intermedio o :avanzado"
   end
 end

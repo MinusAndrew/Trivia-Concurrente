@@ -270,9 +270,9 @@ defmodule Trivia.BancoPreguntasTest do
 
   # ── Protección de la clave de respuestas para clientes ──────────────
 
-  describe "ocultar_respuesta/1 y para_cliente/1" do
-    test "elimina la clave 'respuesta' de la pregunta" do
-      protegida = BancoPreguntas.ocultar_respuesta(@pregunta_valida)
+  describe "para_cliente/1" do
+    test "para_cliente/1 elimina la clave 'respuesta' de una pregunta" do
+      protegida = BancoPreguntas.para_cliente(@pregunta_valida)
       refute Map.has_key?(protegida, "respuesta")
       assert Map.has_key?(protegida, "enunciado")
       assert Map.has_key?(protegida, "opciones")
@@ -345,7 +345,7 @@ defmodule Trivia.BancoPreguntasTest do
       assert {:ok, cached} = pers_state.banco_preguntas
       assert length(cached) == 96
 
-      assert {:ok, ^cached} = BancoPreguntas.obtener_banco(name)
+      assert {:ok, ^cached} = BancoPreguntas.cargar_banco(name)
     end
 
     test "el sorteo de preguntas usa el banco en caché sin releer questions.json en cada invocación" do
