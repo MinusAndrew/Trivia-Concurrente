@@ -267,6 +267,6 @@ Durante el desarrollo de este proyecto se utilizaron herramientas de asistencia 
 
 * **Herramienta utilizada**: Asistente de codificación con IA (Antigravity / LLM) Y Claude Code CLI.
 * **Propósito**:
-  * Estructuración incremental por hitos de los módulos Elixir/OTP (`GenServer`, `Supervisor`, `DynamicSupervisor`) siguiendo la arquitectura definida en `proyecto20262.md`.
+  * Estructuración incremental por hitos de los módulos Elixir/OTP (`GenServer`, `Supervisor`, `DynamicSupervisor`) siguiendo la arquitectura.
   * Generación y endurecimiento de pruebas automatizadas con `ExUnit` y nodos distribuidos con `:peer`.
   * Revisión de casos borde de concurrencia (temporizadores de ronda, persistencia recuperable e historial acotado de notificaciones) y redacción de documentación técnica.
