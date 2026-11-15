@@ -19,6 +19,10 @@ defmodule Trivia.GestorPartidas do
   alias Trivia.Persistencia
   alias Trivia.SupervisorPartidas
 
+  require Logger
+
+  @primer_id 1001
+
   @aviso_reinicio_plantilla "La partida %{id} falló y se reinició sin su progreso. Agrega los bots y ejecuta start_game para jugar de nuevo."
 
   # ── Public API ──────────────────────────────────────────────────────
@@ -203,7 +207,7 @@ defmodule Trivia.GestorPartidas do
     state = %{
       supervisor: supervisor,
       persistencia: persistencia,
-      contador_id: 1001,
+      contador_id: contador_inicial(persistencia, supervisor),
       partidas: %{},
       jugador_partida: %{},
       monitores: %{}
@@ -490,6 +494,62 @@ defmodule Trivia.GestorPartidas do
         {:error, {:persistencia_no_disponible, reason}}
     end
   end
+
+  # Primer número de id libre: el mayor "P-<n>" del historial y de las partidas
+  # aún vivas en el DynamicSupervisor, más uno (o @primer_id si no hay ninguno).
+  # Si el historial no se puede leer, no se adivina: se registra el error y se usa
+  # el reloj de pared (ms), que siempre supera a los ids secuenciales previos.
+  defp contador_inicial(persistencia, supervisor) do
+    ids_vivos = ids_partidas_vivas(supervisor)
+
+    case obtener_historial_seguro(persistencia) do
+      {:ok, historial} ->
+        ids_historial = Enum.map(historial, &Map.get(&1, "id"))
+        max_numero_id(ids_historial ++ ids_vivos) + 1
+
+      {:error, reason} ->
+        contador = max(System.os_time(:millisecond), max_numero_id(ids_vivos) + 1)
+
+        Logger.error(
+          "GestorPartidas: no se pudo leer el historial (#{inspect(reason)}); " <>
+            "se usará P-#{contador} como primer id para no reutilizar ids existentes"
+        )
+
+        contador
+    end
+  end
+
+  defp ids_partidas_vivas(supervisor) do
+    supervisor
+    |> SupervisorPartidas.listar_hijos()
+    |> Enum.flat_map(fn pid ->
+      try do
+        [Trivia.Partida.obtener_estado(pid).id]
+      catch
+        :exit, _ -> []
+      end
+    end)
+  catch
+    :exit, _ -> []
+  end
+
+  defp max_numero_id(ids) do
+    Enum.reduce(ids, @primer_id - 1, fn id, acc ->
+      case numero_id(id) do
+        nil -> acc
+        n -> max(n, acc)
+      end
+    end)
+  end
+
+  defp numero_id("P-" <> numero) do
+    case Integer.parse(numero) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp numero_id(_), do: nil
 
   defp validar_banco(persistencia, tema, nivel, total_preguntas) do
     case cargar_banco_seguro(persistencia) do

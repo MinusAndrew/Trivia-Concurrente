@@ -31,6 +31,8 @@ defmodule Trivia.Persistencia do
   """
   use GenServer
 
+  require Logger
+
   # ── Public API ──────────────────────────────────────────────────────
 
   @doc """
@@ -236,13 +238,14 @@ defmodule Trivia.Persistencia do
     else
       case read_results_file(state.results_path) do
         {:ok, existing_results} ->
-          ya_existe =
-            Enum.any?(existing_results, fn r ->
+          existente =
+            Enum.find(existing_results, fn r ->
               id = r["id"] || r[:id]
               id != nil and to_string(id) == match_id
             end)
 
-          if ya_existe do
+          if existente do
+            advertir_si_colision(existente, resultado, match_id)
             {:reply, {:ok, :ya_registrado}, state}
           else
             case Jason.encode(resultado) do
@@ -273,6 +276,25 @@ defmodule Trivia.Persistencia do
   end
 
   # ── Helpers privados ────────────────────────────────────────────────
+
+  # Un reintento del mismo resultado es idempotente y no se reporta; un resultado
+  # distinto con un id ya registrado se descarta, pero nunca en silencio.
+  defp advertir_si_colision(existente, resultado, match_id) do
+    normalizado =
+      case Jason.encode(resultado) do
+        {:ok, json} -> Jason.decode!(json)
+        {:error, _} -> resultado
+      end
+
+    if normalizado != existente do
+      Logger.error(
+        "Persistencia: resultado descartado, el id #{match_id} ya existe en results.log " <>
+          "con contenido distinto: #{inspect(resultado)}"
+      )
+    end
+
+    :ok
+  end
 
   defp cargar_y_validar_banco(path) do
     case File.read(path) do
