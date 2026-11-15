@@ -1059,6 +1059,11 @@ defmodule Trivia.DistribuidoTest do
     end
 
     test "Trivia.Application.resolver_rol distingue nodos servidor y nodos cliente" do
+      # El nombre del nodo solo decide cuando hay un rol configurado (en pruebas es :none)
+      rol_previo = Application.fetch_env!(:trivia, :role)
+      Application.put_env(:trivia, :role, :server)
+      on_exit(fn -> Application.put_env(:trivia, :role, rol_previo) end)
+
       assert TriviaApp.resolver_rol(:servidor@host, nil) == :server
       assert TriviaApp.resolver_rol(:pedro@host, nil) == :client
       assert TriviaApp.resolver_rol(:carlos@host, nil) == :client

@@ -3,7 +3,9 @@
 /deps/
 /cover/
 /doc/
+/.fetch
 *.ez
+trivia-*.tar
 /tmp/
 
 # Language server / editor
@@ -21,6 +23,7 @@ erl_crash.dump
 .env
 .env.*
 
-# Runtime data written by the server (questions.json is tracked)
+# Runtime data written by the server (questions.json is tracked).
+# The server creates both files when they are missing.
 /data/users.json
 /data/results.log

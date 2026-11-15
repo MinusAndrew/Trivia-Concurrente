@@ -14,7 +14,9 @@ Juego de preguntas y respuestas concurrente y distribuido con soporte para múlt
 ## Guía Rápida: Compilación y Cómo Levantar el Servidor y los Clientes
 
 ### 1. Prerrequisitos y Compilación
-* Elixir 1.17+ y Erlang/OTP 27+ (con `epmd` activo para nodos distribuidos).
+* Elixir 1.17 o superior (`mix.exs` declara `elixir: "~> 1.17"`).
+* Erlang/OTP 25 o superior (el mínimo que admite Elixir 1.17), con `epmd` activo para nodos distribuidos.
+* Probado con Elixir 1.20.3 y Erlang/OTP 29.
 
 ```bash
 mix deps.get
@@ -99,6 +101,8 @@ Cada jugador abre una terminal independiente con su propio `--sname` y la misma 
 mix test
 ```
 
+En el entorno de pruebas (`config/test.exs`) el servidor no se inicia automáticamente: cada prueba levanta sus propios procesos con nombres únicos y directorios temporales, así que `mix test` nunca modifica los archivos de `data/`.
+
 ---
 
 ## Arquitectura del Servidor
@@ -124,7 +128,7 @@ Trivia.Supervisor (one_for_one)
 4. **`Trivia.GestorJugadores`**: Administra el registro automático y autenticación de jugadores, las sesiones activas, el monitoreo de procesos cliente remotos (aplicando abandono según sección 6.5 ante desconexión) y las consultas `score` y `ranking`.
 5. **`Trivia.SupervisorPartidas`**: `DynamicSupervisor` encargado de supervisar dinámicamente cada proceso independiente de partida (`Trivia.Partida`) con estrategia `restart: :transient`.
 6. **`Trivia.GestorPartidas`**: `GenServer` coordinador del ciclo de vida de las partidas:
-   * Asignación de identificadores únicos (`P-1001`, `P-1002`, ...).
+   * Asignación de identificadores únicos (`P-1001`, `P-1002`, ...); tras un reinicio del servidor continúa desde el mayor id registrado en `data/results.log`.
    * Mapeo de jugadores a partidas para impedir que un jugador cree o participe en múltiples partidas a la vez.
    * Ubicación de partidas para los clientes sin exponer los PIDs de los procesos.
    * Manejo de avisos asíncronos de reinicio (`GenServer.cast`) para actualizar PIDs y notificar al creador ante fallas.
@@ -132,9 +136,10 @@ Trivia.Supervisor (one_for_one)
 8. **`Trivia.Bot`**: `GenServer` para cada jugador automático (`:facil` o `:dificil`), con funciones puras de decisión y envío asíncrono mediante `Process.send_after/3`.
 9. **`Trivia.BancoPreguntas`**: Carga, valida y sortea preguntas por tema y dificultad garantizando el reparto proporcional y la seguridad de las respuestas hacia clientes.
 10. **`Trivia.Persistencia`**: `GenServer` exclusivo para lectura y escritura de archivos en `data/` (secciones 8.1 y 9):
-    * `data/users.json` — Lista JSON de usuarios registrados (`usuario` y `clave`).
-    * `data/questions.json` — Banco semilla de preguntas (`tema`, `nivel`, `enunciado`, `opciones` y `respuesta`), cargado y validado al iniciar el servidor y mantenido en memoria para todas las partidas.
-    * `data/results.log` — Historial de partidas finalizadas en formato NDJSON (una línea JSON por partida con `id`, `fecha`, `tema`, `nivel`, `ganador` y `puntajes`).
+    * `data/users.json` — Lista JSON de usuarios registrados (`usuario` y `clave`). Se reescribe de forma atómica (archivo temporal + renombrado).
+    * `data/questions.json` — Banco semilla de preguntas (`tema`, `nivel`, `enunciado`, `opciones` y `respuesta`), cargado y validado al iniciar el servidor y mantenido en memoria para todas las partidas. Es el único banco de preguntas del proyecto.
+    * `data/results.log` — Historial de partidas finalizadas en formato NDJSON (una línea JSON por partida con `id`, `fecha`, `tema`, `nivel`, `ganador` y `puntajes`). Las líneas corruptas se omiten y se reportan en el log, nunca se sobrescriben.
+    * `users.json` y `results.log` son datos de ejecución: el servidor los crea si no existen y no se versionan en git.
 11. **`Trivia.Nivel`** y **`Trivia.Puntaje`**: Módulos funcionales puros para cálculo de puntajes, bonificación por rapidez, niveles, reparto y estadísticas históricas.
 12. **`Trivia.Cliente`** y **`Trivia.Receptor`**: Módulos del nodo cliente. `Trivia.Cliente` traduce comandos de consola en peticiones al servidor remoto y `Trivia.Receptor` corre en un proceso separado (con historial acotado a las 100 notificaciones más recientes) para recibir e imprimir notificaciones asíncronas sin bloquear la lectura del teclado.
 
@@ -218,6 +223,10 @@ Sesión cerrada correctamente.
   * Una partida que finaliza o se cancela voluntariamente termina con razón `:normal` y el supervisor no la reinicia.
   * Una partida que sufre un choque anormal es reiniciada automáticamente por `Trivia.SupervisorPartidas` en su estado inicial (`:esperando`, con el creador original, sin bots y con puntajes en cero).
   * La partida reiniciada reporta su nuevo PID al `GestorPartidas` mediante `cast` (evitando bloqueos o deadlocks), y el gestor despacha la notificación correspondiente al creador.
+  * `Trivia.SupervisorPartidas` admite hasta 100 reinicios cada 5 segundos, de modo que varias partidas que fallan seguidas no agotan el presupuesto compartido ni tumban a las partidas sanas.
+  * Si una partida caída no llega a reiniciarse, `GestorPartidas` descarta su registro tras una breve espera y avisa al creador, que puede crear una partida nueva.
+* **Servidor no bloqueante**: `Trivia.Servidor` atiende cada petición en su propio proceso, así que una petición lenta de un cliente no demora a los demás; la identidad del jugador se sigue tomando del PID que hace la llamada.
+* **Temas**: los temas se comparan sin distinguir mayúsculas, acentos, espacios ni una `s` final (`ciencia`, `Ciencias` y `ciencias` son el mismo tema en `score`, `ranking` y el cálculo del nivel), pero se muestran tal como se escribieron.
 
 ---
 
