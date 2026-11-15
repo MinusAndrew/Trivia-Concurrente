@@ -149,24 +149,40 @@ defmodule Trivia.IdsPartidaTest do
       assert Enum.count(ids_historial(p), fn registrado -> registrado == id end) == 1
     end
 
-    test "si el historial está malformado no inventa un contador bajo ni toca el archivo", ctx do
+    test "una línea corrupta se omite: el contador sigue desde las válidas y no toca el archivo",
+         ctx do
       path = Path.join(ctx.tmp_dir, "results.log")
-      malformado = ~s({"id":"P-1001"}\n{roto\n)
-      File.write!(path, malformado)
+      con_corrupta = ~s({"id":"P-1001"}\n{roto\n{"id":"P-1002"}\n)
+      File.write!(path, con_corrupta)
+
+      log = capture_log(fn -> send(self(), {:arrancado, arrancar(ctx, 1)}) end)
+      assert_received {:arrancado, %{gestor: g, persistencia: p}}
+      assert log =~ "línea(s) corrupta(s)"
+
+      assert {:ok, "P-1003", _} = GestorPartidas.crear_partida(g, "pedro", "ciencias", 5, 15)
+      terminar_por_abandono(g, "pedro")
+
+      # La línea corrupta se conserva tal cual; el resultado nuevo va al final
+      assert File.read!(path) =~ con_corrupta
+      assert ids_historial(p) == ["P-1001", "P-1002", "P-1003"]
+    end
+
+    test "si el historial no se puede leer no inventa un contador bajo", ctx do
+      # Un directorio en lugar del archivo produce un error de lectura real (:eisdir)
+      path = Path.join(ctx.tmp_dir, "results.log")
+      File.mkdir_p!(path)
       antes = System.os_time(:millisecond)
 
       log = capture_log(fn -> send(self(), {:arrancado, arrancar(ctx, 1)}) end)
       assert_received {:arrancado, %{gestor: g, persistencia: p}}
       assert log =~ "no se pudo leer el historial"
 
-      # Mientras el archivo siga malformado no se crean partidas y no se toca el archivo
-      assert {:error, :json_invalido} =
-               GestorPartidas.crear_partida(g, "pedro", "ciencias", 5, 15)
+      # Mientras no se pueda leer el historial no se crean partidas
+      assert {:error, :eisdir} = GestorPartidas.crear_partida(g, "pedro", "ciencias", 5, 15)
 
-      assert File.read!(path) == malformado
-
-      # Un operador repara el archivo con el servidor en marcha: el id de respaldo
-      # no colisiona con los ids que reaparecen en el historial
+      # Un operador restablece el archivo con el servidor en marcha: el id de
+      # respaldo no colisiona con los ids que reaparecen en el historial
+      File.rmdir!(path)
       File.write!(path, ~s({"id":"P-1001"}\n{"id":"P-1002"}\n))
 
       assert {:ok, "P-" <> numero = id, _} =

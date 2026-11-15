@@ -79,7 +79,8 @@ defmodule Trivia.Persistencia do
   @doc """
   Retorna el historial completo de resultados desde `results.log`.
   Si `results.log` no existe, retorna una lista vacía `[]`.
-  Si contiene líneas malformadas, retorna `{:error, reason}`.
+  Las líneas corruptas se omiten y se reportan en el log (sin modificar el
+  archivo); si el archivo no se puede leer, retorna `{:error, reason}`.
   """
   def obtener_historial(server \\ __MODULE__) do
     GenServer.call(server, :obtener_historial)
@@ -102,7 +103,10 @@ defmodule Trivia.Persistencia do
   Retorna:
     * `:ok` si se escribió un nuevo resultado.
     * `{:ok, :ya_registrado}` si ya existía una entrada con ese `id` (operación idempotente).
-    * `{:error, reason}` si la lectura o escritura falló, o si el archivo está corrupto.
+    * `{:error, reason}` si la lectura o escritura falló.
+
+  Las líneas corruptas de `results.log` no impiden registrar: se conservan tal
+  cual y el nuevo resultado se agrega al final, en una línea propia.
   """
   def registrar_resultado_unico(resultado, server \\ __MODULE__) do
     GenServer.call(server, {:registrar_resultado_unico, resultado})
@@ -149,7 +153,9 @@ defmodule Trivia.Persistencia do
           users_path: Path.join(data_dir, "users.json"),
           questions_path: questions_path,
           results_path: Path.join(data_dir, "results.log"),
-          banco_preguntas: banco_preguntas
+          banco_preguntas: banco_preguntas,
+          # Números de línea corruptas ya reportados, para no repetir el aviso
+          lineas_corruptas: []
         }
 
         {:ok, state}
@@ -189,7 +195,7 @@ defmodule Trivia.Persistencia do
 
             case Jason.encode(updated, pretty: true) do
               {:ok, json_data} ->
-                case File.write(state.users_path, json_data) do
+                case escribir_atomico(state.users_path, json_data) do
                   :ok -> {:reply, :ok, state}
                   {:error, reason} -> {:reply, {:error, reason}, state}
                 end
@@ -207,16 +213,16 @@ defmodule Trivia.Persistencia do
   end
 
   def handle_call(:obtener_historial, _from, state) do
-    case read_results_file(state.results_path) do
-      {:ok, list} -> {:reply, list, state}
-      {:error, reason} -> {:reply, {:error, reason}, state}
+    case leer_historial(state) do
+      {{:ok, list}, state} -> {:reply, list, state}
+      {{:error, reason}, state} -> {:reply, {:error, reason}, state}
     end
   end
 
   def handle_call({:registrar_resultado, resultado}, _from, state) do
     case Jason.encode(resultado) do
       {:ok, json_line} ->
-        case File.write(state.results_path, json_line <> "\n", [:append]) do
+        case agregar_linea(state.results_path, json_line) do
           :ok -> {:reply, :ok, state}
           {:error, reason} -> {:reply, {:error, reason}, state}
         end
@@ -236,8 +242,8 @@ defmodule Trivia.Persistencia do
     if match_id == nil or match_id == "" do
       {:reply, {:error, :id_invalido}, state}
     else
-      case read_results_file(state.results_path) do
-        {:ok, existing_results} ->
+      case leer_historial(state) do
+        {{:ok, existing_results}, state} ->
           existente =
             Enum.find(existing_results, fn r ->
               id = r["id"] || r[:id]
@@ -250,7 +256,7 @@ defmodule Trivia.Persistencia do
           else
             case Jason.encode(resultado) do
               {:ok, json_line} ->
-                case File.write(state.results_path, json_line <> "\n", [:append]) do
+                case agregar_linea(state.results_path, json_line) do
                   :ok -> {:reply, :ok, state}
                   {:error, reason} -> {:reply, {:error, reason}, state}
                 end
@@ -260,7 +266,7 @@ defmodule Trivia.Persistencia do
             end
           end
 
-        {:error, reason} ->
+        {{:error, reason}, state} ->
           {:reply, {:error, reason}, state}
       end
     end
@@ -335,32 +341,82 @@ defmodule Trivia.Persistencia do
     end
   end
 
-  defp read_results_file(path) do
-    case File.read(path) do
-      {:ok, contents} ->
-        lines = String.split(contents, "\n", trim: true)
-        parse_ndjson_lines(lines, [])
+  # Escribe en un archivo temporal del mismo directorio y lo renombra (operación
+  # atómica en el mismo sistema de archivos): ni un lector ni una caída a mitad
+  # de escritura pueden ver un archivo a medio escribir.
+  defp escribir_atomico(path, contenido) do
+    tmp = "#{path}.tmp-#{System.unique_integer([:positive])}"
 
-      {:error, :enoent} ->
-        {:ok, []}
-
-      {:error, reason} ->
-        {:error, reason}
+    with :ok <- File.write(tmp, contenido, [:sync]),
+         :ok <- File.rename(tmp, path) do
+      :ok
+    else
+      {:error, _reason} = error ->
+        File.rm(tmp)
+        error
     end
   end
 
-  defp parse_ndjson_lines([], acc), do: {:ok, Enum.reverse(acc)}
+  # Agrega una línea al final de `results.log` sin tocar lo existente. Si el
+  # archivo termina en una línea incompleta (p. ej. una escritura interrumpida),
+  # el nuevo registro empieza en una línea propia en vez de fusionarse con ella.
+  defp agregar_linea(path, json_line) do
+    prefijo = if termina_sin_salto?(path), do: "\n", else: ""
+    File.write(path, prefijo <> json_line <> "\n", [:append])
+  end
 
-  defp parse_ndjson_lines([line | rest], acc) do
-    case Jason.decode(line) do
-      {:ok, data} when is_map(data) ->
-        parse_ndjson_lines(rest, [data | acc])
+  defp termina_sin_salto?(path) do
+    with {:ok, %File.Stat{size: size}} when size > 0 <- File.stat(path),
+         {:ok, ultimo} <-
+           File.open(path, [:read, :binary], fn f -> :file.pread(f, size - 1, 1) end) do
+      ultimo != {:ok, "\n"}
+    else
+      _ -> false
+    end
+  end
 
-      {:ok, _} ->
-        {:error, :formato_invalido}
+  # Las líneas corruptas se omiten y se reportan (una vez por cada conjunto
+  # distinto), pero nunca se modifican ni se eliminan del archivo.
+  defp leer_historial(state) do
+    case read_results_file(state.results_path) do
+      {:ok, registros, corruptas} ->
+        if corruptas != [] and corruptas != state.lineas_corruptas do
+          Logger.warning(
+            "Persistencia: se omitieron #{length(corruptas)} línea(s) corrupta(s) de " <>
+              "#{state.results_path} (líneas #{Enum.join(corruptas, ", ")}); " <>
+              "el archivo no se modifica"
+          )
+        end
 
-      {:error, _} ->
-        {:error, :json_invalido}
+        {{:ok, registros}, %{state | lineas_corruptas: corruptas}}
+
+      {:error, _reason} = error ->
+        {error, state}
+    end
+  end
+
+  defp read_results_file(path) do
+    case File.read(path) do
+      {:ok, contents} ->
+        {registros, corruptas} =
+          contents
+          |> String.split("\n")
+          |> Enum.with_index(1)
+          |> Enum.reject(fn {linea, _numero} -> String.trim(linea) == "" end)
+          |> Enum.reduce({[], []}, fn {linea, numero}, {registros, corruptas} ->
+            case Jason.decode(linea) do
+              {:ok, data} when is_map(data) -> {[data | registros], corruptas}
+              _ -> {registros, [numero | corruptas]}
+            end
+          end)
+
+        {:ok, Enum.reverse(registros), Enum.reverse(corruptas)}
+
+      {:error, :enoent} ->
+        {:ok, [], []}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end
