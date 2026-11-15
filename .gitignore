@@ -24,6 +24,3 @@ erl_crash.dump
 # Runtime data written by the server (questions.json is tracked)
 /data/users.json
 /data/results.log
-
-# Local data copies (not used by the app)
-/priv/

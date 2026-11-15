@@ -147,9 +147,6 @@ defmodule Trivia.GestorPartidas do
     end
   end
 
-  def start_game(jugador) when is_binary(jugador), do: iniciar_partida(jugador)
-  def start_game(gestor, jugador), do: iniciar_partida(gestor, jugador)
-
   @doc """
   Envía una respuesta a la partida del jugador indicado.
   """
@@ -168,10 +165,6 @@ defmodule Trivia.GestorPartidas do
     end
   end
 
-  def answer(jugador, respuesta), do: responder(jugador, respuesta)
-  def answer(gestor, jugador, respuesta), do: responder(gestor, jugador, respuesta)
-  def answer(gestor, jugador, respuesta, opts), do: responder(gestor, jugador, respuesta, opts)
-
   @doc """
   Permite al jugador creador abandonar su partida activa.
   """
@@ -182,9 +175,6 @@ defmodule Trivia.GestorPartidas do
   def abandonar_partida(gestor, jugador) do
     GenServer.call(gestor, {:abandonar_partida, to_string(jugador)})
   end
-
-  def leave_game(jugador) when is_binary(jugador), do: abandonar_partida(jugador)
-  def leave_game(gestor, jugador), do: abandonar_partida(gestor, jugador)
 
   @doc """
   Reporte asíncrono del PID de una partida al gestor.
@@ -231,7 +221,7 @@ defmodule Trivia.GestorPartidas do
     tema_str = to_string(tema)
 
     cond do
-      String.starts_with?(creador_str, "bot_") ->
+      Nivel.es_bot?(creador_str) ->
         {:reply, {:error, :usuario_reservado}, state}
 
       not is_integer(total_preguntas) or total_preguntas <= 0 ->

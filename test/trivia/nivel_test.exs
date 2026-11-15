@@ -64,8 +64,8 @@ defmodule Trivia.NivelTest do
       assert Trivia.Nivel.reparto("avanzado", 10) == %{basico: 0, intermedio: 3, avanzado: 7}
     end
 
-    test "acepta argumentos en orden invertido (total, nivel)" do
-      assert Trivia.Nivel.reparto(10, :basico) == %{basico: 7, intermedio: 3, avanzado: 0}
+    test "solo acepta el orden (nivel, total)" do
+      assert_raise FunctionClauseError, fn -> Trivia.Nivel.reparto(10, :basico) end
     end
   end
 
@@ -170,9 +170,37 @@ defmodule Trivia.NivelTest do
 
       assert Trivia.Nivel.puntaje_por_tema(lineas, "Ana", "ciencia") == 60
     end
+
+    test "un jugador con el nombre de un tema no intercambia usuario y tema" do
+      # "historia" es a la vez un tema del historial y el nombre de un jugador
+      h = [
+        %{"tema" => "historia", "puntajes" => %{"ana" => 10}},
+        %{"tema" => "geografia", "puntajes" => %{"historia" => 70}}
+      ]
+
+      assert Trivia.Nivel.puntaje_por_tema(h, "historia", "Geografía") == 70
+      assert Trivia.Nivel.puntaje_por_tema(h, "historia", "historia") == 0
+    end
   end
 
-  # ── normalize_nivel (seguridad de átomos) ──────────────────────────
+  # ── normalizar/1 (seguridad de átomos) ──────────────────────────────
+
+  describe "normalizar/1 y Bot.normalizar_dificultad/1" do
+    test "convierte niveles en texto o átomo a su átomo" do
+      for nivel <- [:basico, :intermedio, :avanzado] do
+        assert Trivia.Nivel.normalizar(nivel) == nivel
+        assert Trivia.Nivel.normalizar(Atom.to_string(nivel)) == nivel
+      end
+
+      assert_raise ArgumentError, fn -> Trivia.Nivel.normalizar("experto") end
+    end
+
+    test "convierte dificultades de bot en texto o átomo a su átomo" do
+      assert Trivia.Bot.normalizar_dificultad("facil") == :facil
+      assert Trivia.Bot.normalizar_dificultad(:dificil) == :dificil
+      assert_raise ArgumentError, fn -> Trivia.Bot.normalizar_dificultad("imposible") end
+    end
+  end
 
   describe "reparto/2 con niveles inválidos (seguridad de átomos)" do
     test "nivel desconocido como string lanza ArgumentError" do

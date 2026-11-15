@@ -51,8 +51,6 @@ defmodule Trivia.Partida do
     GenServer.call(partida, :obtener_estado)
   end
 
-  def obtener_info(partida), do: obtener_estado(partida)
-
   @doc """
   Agrega un bot a la partida con la dificultad especificada (`:facil` o `:dificil`).
   Solo permitido en estado `:esperando` y mientras haya cupo (< 4 jugadores).
@@ -61,8 +59,6 @@ defmodule Trivia.Partida do
     GenServer.call(partida, {:agregar_bot, dificultad})
   end
 
-  def add_bot(partida, dificultad \\ :facil), do: agregar_bot(partida, dificultad)
-
   @doc """
   Inicia la partida. Requiere al menos dos bots agregados y estar en estado `:esperando`.
   Selecciona las preguntas del banco y abre automáticamente la primera ronda.
@@ -70,8 +66,6 @@ defmodule Trivia.Partida do
   def iniciar_partida(partida) do
     GenServer.call(partida, :iniciar_partida)
   end
-
-  def start_game(partida), do: iniciar_partida(partida)
 
   @doc """
   Envía una respuesta para la ronda en curso.
@@ -87,17 +81,12 @@ defmodule Trivia.Partida do
     GenServer.call(partida, {:responder, jugador, respuesta})
   end
 
-  def answer(partida, jugador, respuesta), do: responder(partida, jugador, respuesta)
-  def answer(partida, jugador, respuesta, _opts), do: responder(partida, jugador, respuesta)
-
   @doc """
   Registra un proceso oyente para recibir notificaciones de la partida.
   """
   def registrar_oyente(partida, pid) when is_pid(pid) do
     GenServer.call(partida, {:registrar_oyente, pid})
   end
-
-  def register_listener(partida, pid), do: registrar_oyente(partida, pid)
 
   @doc """
   Registra el PID de un bot asociado a su nombre dentro de la partida.
@@ -113,8 +102,6 @@ defmodule Trivia.Partida do
   def abandonar_partida(partida, jugador) do
     GenServer.call(partida, {:abandonar_partida, jugador})
   end
-
-  def leave_game(partida, jugador), do: abandonar_partida(partida, jugador)
 
   @doc """
   Actualiza el puntaje de un jugador en la partida (uso interno/pruebas).
@@ -226,7 +213,7 @@ defmodule Trivia.Partida do
         {:reply, {:error, :dificultad_invalida}, state}
 
       true ->
-        dif_norm = normalizar_dificultad(dificultad)
+        dif_norm = Trivia.Bot.normalizar_dificultad(dificultad)
         bot_num = length(state.bots) + 1
         bot_nombre = "bot_#{bot_num}"
 
@@ -877,10 +864,4 @@ defmodule Trivia.Partida do
     if state.retry_timer, do: Process.cancel_timer(state.retry_timer)
     if state.cleanup_timer, do: Process.cancel_timer(state.cleanup_timer)
   end
-
-  defp normalizar_dificultad(:facil), do: :facil
-  defp normalizar_dificultad(:dificil), do: :dificil
-  defp normalizar_dificultad("facil"), do: :facil
-  defp normalizar_dificultad("dificil"), do: :dificil
-  defp normalizar_dificultad(other), do: other
 end

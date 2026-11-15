@@ -6,6 +6,8 @@ defmodule Trivia.Puntaje do
   No realiza acceso a procesos ni al sistema de archivos.
   """
 
+  alias Trivia.Nivel
+
   @opciones_validas ["A", "B", "C", "D"]
 
   @doc """
@@ -17,7 +19,7 @@ defmodule Trivia.Puntaje do
   """
   @spec puntos_base(term(), term()) :: integer()
   def puntos_base(nivel, resultado) do
-    case {normalizar_nivel(nivel), resultado} do
+    case {Nivel.normalizar(nivel), resultado} do
       {:basico, :correcta} -> 10
       {:basico, :incorrecta} -> -5
       {:basico, :sin_responder} -> 0
@@ -155,18 +157,5 @@ defmodule Trivia.Puntaje do
         multiples -> Enum.join(multiples, ", ")
       end
     end
-  end
-
-  # ── Helpers privados ────────────────────────────────────────────────
-
-  defp normalizar_nivel(:basico), do: :basico
-  defp normalizar_nivel(:intermedio), do: :intermedio
-  defp normalizar_nivel(:avanzado), do: :avanzado
-  defp normalizar_nivel("basico"), do: :basico
-  defp normalizar_nivel("intermedio"), do: :intermedio
-  defp normalizar_nivel("avanzado"), do: :avanzado
-
-  defp normalizar_nivel(other) do
-    raise ArgumentError, "Nivel inválido: #{inspect(other)}"
   end
 end

@@ -21,14 +21,7 @@ defmodule Trivia.BancoPreguntas do
   Retorna `{:ok, preguntas}` o `{:error, reason}`.
   """
   def cargar_banco(server \\ Persistencia) do
-    Persistencia.obtener_preguntas(server)
-  end
-
-  @doc """
-  Alias de `cargar_banco/1` para obtener el banco de preguntas en caché.
-  """
-  def obtener_banco(server \\ Persistencia) do
-    cargar_banco(server)
+    Persistencia.cargar_preguntas(server)
   end
 
   @doc """
@@ -47,8 +40,6 @@ defmodule Trivia.BancoPreguntas do
   end
 
   def validar_banco(_), do: {:error, :formato_invalido}
-
-  def validar_preguntas(preguntas), do: validar_banco(preguntas)
 
   @doc """
   Valida la estructura de una pregunta individual.
@@ -227,14 +218,6 @@ defmodule Trivia.BancoPreguntas do
     end
   end
 
-  # Aliases
-  def sortear(p, t, n, tot), do: sortear_preguntas(p, t, n, tot)
-  def sortear(t, n, tot), do: sortear_preguntas(t, n, tot)
-  def seleccionar(p, t, n, tot), do: sortear_preguntas(p, t, n, tot)
-  def seleccionar(t, n, tot), do: sortear_preguntas(t, n, tot)
-  def seleccionar_preguntas(p, t, n, tot), do: sortear_preguntas(p, t, n, tot)
-  def seleccionar_preguntas(t, n, tot), do: sortear_preguntas(t, n, tot)
-
   defp validar_nivel_jugador(nivel)
        when nivel in [:basico, :intermedio, :avanzado, "basico", "intermedio", "avanzado"],
        do: :ok
@@ -273,29 +256,15 @@ defmodule Trivia.BancoPreguntas do
   # ── Seguridad y Exposición ──────────────────────────────────────────
 
   @doc """
-  Elimina la clave `"respuesta"` (y `:respuesta`) de una pregunta
-  para que no sea expuesta a los clientes en la red.
+  Prepara una pregunta o lista de preguntas para ser enviada al cliente:
+  elimina la clave `"respuesta"` (y `:respuesta`) para que la respuesta
+  correcta permanezca solo en el servidor.
   """
-  def ocultar_respuesta(pregunta) when is_map(pregunta) do
+  def para_cliente(preguntas) when is_list(preguntas) do
+    Enum.map(preguntas, fn pregunta -> para_cliente(pregunta) end)
+  end
+
+  def para_cliente(pregunta) when is_map(pregunta) do
     Map.drop(pregunta, ["respuesta", :respuesta])
-  end
-
-  @doc """
-  Elimina la clave `"respuesta"` de una lista de preguntas.
-  """
-  def ocultar_respuestas(preguntas) when is_list(preguntas) do
-    Enum.map(preguntas, fn pregunta -> ocultar_respuesta(pregunta) end)
-  end
-
-  @doc """
-  Prepara una pregunta o lista de preguntas para ser enviada al cliente,
-  asegurando que la respuesta correcta permanezca solo en el servidor.
-  """
-  def para_cliente(pregunta_o_preguntas) when is_list(pregunta_o_preguntas) do
-    ocultar_respuestas(pregunta_o_preguntas)
-  end
-
-  def para_cliente(pregunta_o_preguntas) when is_map(pregunta_o_preguntas) do
-    ocultar_respuesta(pregunta_o_preguntas)
   end
 end

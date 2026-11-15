@@ -17,6 +17,7 @@ defmodule Trivia.Bot do
   """
   use GenServer
 
+  alias Trivia.Nivel
   alias Trivia.Puntaje
 
   @opciones_validas ["A", "B", "C", "D"]
@@ -72,7 +73,7 @@ defmodule Trivia.Bot do
   @spec probabilidad_acierto(term(), term()) :: float()
   def probabilidad_acierto(dificultad_bot, nivel_pregunta) do
     dif = normalizar_dificultad(dificultad_bot)
-    niv = normalizar_nivel(nivel_pregunta)
+    niv = Nivel.normalizar(nivel_pregunta)
 
     case {dif, niv} do
       {:facil, :basico} -> 0.40
@@ -133,7 +134,7 @@ defmodule Trivia.Bot do
   def decidir(dificultad_bot, nivel_pregunta, respuesta_correcta, tiempo_pregunta, opts \\ [])
       when is_number(tiempo_pregunta) and tiempo_pregunta > 0 do
     dif = normalizar_dificultad(dificultad_bot)
-    niv = normalizar_nivel(nivel_pregunta)
+    niv = Nivel.normalizar(nivel_pregunta)
     correcta_norm = Puntaje.normalizar_respuesta(respuesta_correcta)
     prob_acierto = probabilidad_acierto(dif, niv)
 
@@ -332,26 +333,21 @@ defmodule Trivia.Bot do
     :ok
   end
 
-  # ── Helpers privados ────────────────────────────────────────────────
+  # ── Normalización ───────────────────────────────────────────────────
 
-  defp normalizar_dificultad(:facil), do: :facil
-  defp normalizar_dificultad("facil"), do: :facil
-  defp normalizar_dificultad(:dificil), do: :dificil
-  defp normalizar_dificultad("dificil"), do: :dificil
+  @doc """
+  Convierte una dificultad de bot (`:facil`, `"facil"`, ...) a su átomo.
+  Es la única conversión de dificultades del proyecto y lanza `ArgumentError`
+  ante una dificultad desconocida.
+  """
+  @spec normalizar_dificultad(term()) :: :facil | :dificil
+  def normalizar_dificultad(:facil), do: :facil
+  def normalizar_dificultad("facil"), do: :facil
+  def normalizar_dificultad(:dificil), do: :dificil
+  def normalizar_dificultad("dificil"), do: :dificil
 
-  defp normalizar_dificultad(other) do
+  def normalizar_dificultad(otra) do
     raise ArgumentError,
-          "Dificultad de bot inválida: #{inspect(other)}. Debe ser :facil o :dificil"
-  end
-
-  defp normalizar_nivel(:basico), do: :basico
-  defp normalizar_nivel("basico"), do: :basico
-  defp normalizar_nivel(:intermedio), do: :intermedio
-  defp normalizar_nivel("intermedio"), do: :intermedio
-  defp normalizar_nivel(:avanzado), do: :avanzado
-  defp normalizar_nivel("avanzado"), do: :avanzado
-
-  defp normalizar_nivel(other) do
-    raise ArgumentError, "Nivel de pregunta inválido: #{inspect(other)}"
+          "Dificultad de bot inválida: #{inspect(otra)}. Debe ser :facil o :dificil"
   end
 end

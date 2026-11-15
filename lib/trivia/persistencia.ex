@@ -31,6 +31,8 @@ defmodule Trivia.Persistencia do
   """
   use GenServer
 
+  alias Trivia.Nivel
+
   require Logger
 
   # ── Public API ──────────────────────────────────────────────────────
@@ -46,8 +48,6 @@ defmodule Trivia.Persistencia do
     {name, opts} = Keyword.pop(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
-
-  def start_link(opts \\ []), do: iniciar_link(opts)
 
   def child_spec(opts) do
     %{
@@ -122,13 +122,6 @@ defmodule Trivia.Persistencia do
   end
 
   @doc """
-  Alias de `cargar_preguntas/1` para obtener el banco de preguntas en caché.
-  """
-  def obtener_preguntas(server \\ __MODULE__) do
-    cargar_preguntas(server)
-  end
-
-  @doc """
   Fuerza la recarga y validación de `questions.json` desde disco hacia la memoria del servidor.
   """
   def recargar_preguntas(server \\ __MODULE__) do
@@ -176,7 +169,7 @@ defmodule Trivia.Persistencia do
   def handle_call({:registrar_usuario, usuario, clave}, _from, state) do
     user_str = to_string(usuario)
 
-    if String.starts_with?(user_str, "bot_") do
+    if Nivel.es_bot?(user_str) do
       {:reply, {:error, :usuario_reservado}, state}
     else
       case read_users_file(state.users_path) do

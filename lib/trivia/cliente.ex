@@ -62,8 +62,6 @@ defmodule Trivia.Cliente do
     GenServer.call(cliente, {:conectar, to_string(usuario), to_string(clave)}, @default_timeout)
   end
 
-  def connect(cliente \\ __MODULE__, usuario, clave), do: conectar(cliente, usuario, clave)
-
   @doc """
   Comando `disconnect`: cierra la sesión activa en el servidor. Si el jugador
   estaba en una partida en curso, aplica la sección 6.5.
@@ -71,8 +69,6 @@ defmodule Trivia.Cliente do
   def desconectar(cliente \\ __MODULE__) do
     GenServer.call(cliente, {:peticion, :disconnect}, @default_timeout)
   end
-
-  def disconnect(cliente \\ __MODULE__), do: desconectar(cliente)
 
   @doc """
   Comando `score`: solicita al servidor el puntaje acumulado, partidas jugadas
@@ -109,9 +105,6 @@ defmodule Trivia.Cliente do
     )
   end
 
-  def create_game(cliente \\ __MODULE__, tema, preguntas, tiempo),
-    do: crear_partida(cliente, tema, preguntas, tiempo)
-
   @doc """
   Comando `add_bot <facil|dificil>`: agrega un bot a la partida del jugador.
   """
@@ -123,17 +116,12 @@ defmodule Trivia.Cliente do
     )
   end
 
-  def add_bot(cliente \\ __MODULE__, dificultad \\ "facil"),
-    do: agregar_bot(cliente, dificultad)
-
   @doc """
   Comando `start_game`: inicia la partida del jugador.
   """
   def iniciar_partida(cliente \\ __MODULE__) do
     GenServer.call(cliente, {:peticion, :start_game}, @default_timeout)
   end
-
-  def start_game(cliente \\ __MODULE__), do: iniciar_partida(cliente)
 
   @doc """
   Comando `leave_game`: abandona la partida activa.
@@ -142,16 +130,12 @@ defmodule Trivia.Cliente do
     GenServer.call(cliente, {:peticion, :leave_game}, @default_timeout)
   end
 
-  def leave_game(cliente \\ __MODULE__), do: abandonar_partida(cliente)
-
   @doc """
   Comando `answer <letra>`: envía la respuesta del jugador para la ronda abierta.
   """
   def responder(cliente \\ __MODULE__, letra) do
     GenServer.call(cliente, {:peticion, {:answer, to_string(letra)}}, @default_timeout)
   end
-
-  def answer(cliente \\ __MODULE__, letra), do: responder(cliente, letra)
 
   @doc """
   Envía una petición cruda al servidor desde la sesión del cliente.

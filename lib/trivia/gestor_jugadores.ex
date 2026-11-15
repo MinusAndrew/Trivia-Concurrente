@@ -134,7 +134,7 @@ defmodule Trivia.GestorJugadores do
       not usuario_valido?(usuario) ->
         {:reply, {:error, :usuario_invalido}, state}
 
-      String.starts_with?(usuario, "bot_") ->
+      Nivel.es_bot?(usuario) ->
         {:reply, {:error, :usuario_reservado}, state}
 
       not clave_valida?(clave) ->
