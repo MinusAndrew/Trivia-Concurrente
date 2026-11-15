@@ -151,11 +151,27 @@ Notas:
 | `ranking` | Muestra el ranking histórico global de jugadores humanos. |
 | `ranking <tema>` | Muestra el ranking histórico filtrado por un tema (ej. `ranking ciencias`). |
 | `create_game tema=<t> preguntas=<n> tiempo=<s>` | Crea una nueva partida configurando tema, cantidad de preguntas y segundos por ronda. |
-| `add_bot <facil\|dificil>` | Agrega un bot (`bot_1`, `bot_2`, `bot_3`) a la partida en espera (mínimo 2, máximo 3). |
-| `start_game` | Inicia la partida una vez agregados entre 2 y 3 bots. |
+| `add_bot <facil\|dificil>` | Agrega un bot (`bot_1`, `bot_2`, `bot_3`) a la partida en espera (máximo 3). Solo el creador. |
+| `games` | Lista las partidas en espera a las que se puede unir, con sus jugadores. |
+| `join_game <id>` | Se une a la partida en espera de otro jugador (ej. `join_game P-1001`; también acepta `p-1001` o `1001`). |
+| `start_game` | Inicia la partida. Solo el creador. Jugando solo exige al menos 2 bots; con otro jugador humano no exige bots. |
 | `answer <A\|B\|C\|D>` | Envía la respuesta del jugador para la pregunta de la ronda abierta. |
 | `leave_game` | Abandona la partida actual (cancela sin guardar si estaba en espera; guarda resultado parcial si estaba en curso). |
 | `help` / `exit` | Muestra la lista de comandos o cierra el cliente. |
+
+#### Jugar con otras personas en la misma partida
+
+Una partida admite hasta 4 participantes entre humanos y bots:
+
+1. Un jugador la crea con `create_game` y comparte el id (`P-1001`).
+2. Los demás la ven con `games` y entran con `join_game P-1001` mientras está en espera.
+3. El creador agrega bots si quiere y ejecuta `start_game`. Todos reciben las mismas preguntas al mismo tiempo, y la ronda se cierra cuando responden todos o se acaba el tiempo.
+
+Reglas:
+- El nivel de las preguntas es el del creador en ese tema.
+- Si un jugador unido usa `leave_game` (o se desconecta) antes del inicio, sale de la partida. Si lo hace en curso, deja de jugar pero conserva los puntos que llevaba, que se guardan en el resultado.
+- Si el creador abandona, la partida se cancela (en espera) o termina y se guarda (en curso) para todos, como cuando juega solo.
+- Si la partida falla y se reinicia, vuelve a quedar solo con su creador y los jugadores unidos reciben un aviso para volver a unirse.
 
 ---
 

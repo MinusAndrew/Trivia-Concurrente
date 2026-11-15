@@ -117,6 +117,20 @@ defmodule Trivia.Cliente do
   end
 
   @doc """
+  Comando `games`: lista las partidas en espera a las que se puede unir.
+  """
+  def listar_partidas(cliente \\ __MODULE__) do
+    GenServer.call(cliente, {:peticion, :list_games}, @default_timeout)
+  end
+
+  @doc """
+  Comando `join_game <id>`: se une a la partida en espera de otro jugador.
+  """
+  def unirse_partida(cliente \\ __MODULE__, id) do
+    GenServer.call(cliente, {:peticion, {:join_game, to_string(id)}}, @default_timeout)
+  end
+
+  @doc """
   Comando `start_game`: inicia la partida del jugador.
   """
   def iniciar_partida(cliente \\ __MODULE__) do
@@ -177,6 +191,8 @@ defmodule Trivia.Cliente do
     * `"connect pedro 1234"` -> `{:ok, {:connect, "pedro", "1234"}}`
     * `"create_game tema=ciencia preguntas=5 tiempo=15"` -> `{:ok, {:create_game, "ciencia", 5, 15}}`
     * `"add_bot dificil"` -> `{:ok, {:add_bot, "dificil"}}`
+    * `"games"` -> `{:ok, :list_games}`
+    * `"join_game P-1001"` -> `{:ok, {:join_game, "P-1001"}}`
     * `"start_game"` -> `{:ok, :start_game}`
     * `"answer B"` -> `{:ok, {:answer, "B"}}`
     * `"leave_game"` -> `{:ok, :leave_game}`
@@ -224,6 +240,12 @@ defmodule Trivia.Cliente do
 
       ["add_bot", dificultad] ->
         {:ok, {:add_bot, dificultad}}
+
+      ["games"] ->
+        {:ok, :list_games}
+
+      ["join_game", id] ->
+        {:ok, {:join_game, id}}
 
       ["start_game"] ->
         {:ok, :start_game}
@@ -345,6 +367,10 @@ defmodule Trivia.Cliente do
             IO.puts(Receptor.formatear_ranking(tema, entradas))
             bucle_consola(cliente)
 
+          {:ok, {:partidas, partidas}} ->
+            IO.puts(Receptor.formatear_partidas(partidas))
+            bucle_consola(cliente)
+
           {:ok, _respuesta} ->
             bucle_consola(cliente)
 
@@ -364,7 +390,9 @@ defmodule Trivia.Cliente do
       ranking [tema]                                   Muestra el ranking histórico (global o por tema)
       create_game tema=<t> preguntas=<n> tiempo=<s>    Crea una nueva partida
       add_bot <facil|dificil>                          Agrega un bot a la partida en espera
-      start_game                                       Inicia la partida
+      games                                            Lista las partidas en espera
+      join_game <id>                                   Se une a la partida de otro jugador
+      start_game                                       Inicia la partida (solo el creador)
       answer <A|B|C|D>                                 Envía tu respuesta en la ronda actual
       leave_game                                       Abandona la partida actual
       exit                                             Cierra el cliente
@@ -558,6 +586,10 @@ defmodule Trivia.Cliente do
   end
 
   defp notificar_evento_comando(receptor, _peticion, {:ok, {:bot_agregado, _nombre} = info}) do
+    send(receptor, {:estado_partida, info})
+  end
+
+  defp notificar_evento_comando(receptor, _peticion, {:ok, {:unido_partida, _info} = info}) do
     send(receptor, {:estado_partida, info})
   end
 

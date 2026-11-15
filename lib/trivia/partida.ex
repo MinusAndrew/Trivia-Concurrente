@@ -60,7 +60,17 @@ defmodule Trivia.Partida do
   end
 
   @doc """
-  Inicia la partida. Requiere al menos dos bots agregados y estar en estado `:esperando`.
+  Une a otro jugador humano a la partida en espera. `receptor` es el PID que
+  recibirá sus notificaciones. Retorna `{:ok, info}` con los datos públicos de
+  la partida.
+  """
+  def unirse(partida, jugador, receptor) do
+    GenServer.call(partida, {:unirse, to_string(jugador), receptor})
+  end
+
+  @doc """
+  Inicia la partida. Si hay un solo humano requiere al menos dos bots; con dos o
+  más humanos no exige bots. Debe estar en estado `:esperando`.
   Selecciona las preguntas del banco y abre automáticamente la primera ronda.
   """
   def iniciar_partida(partida) do
@@ -96,8 +106,12 @@ defmodule Trivia.Partida do
   end
 
   @doc """
-  Permite al creador abandonar la partida. Si está en espera, se cancela; si está en curso,
-  se persiste el resultado hasta ese momento y termina.
+  Permite a un jugador abandonar la partida.
+
+  Si es el creador y está en espera, se cancela; si está en curso, se persiste el
+  resultado hasta ese momento y termina. Si es un jugador unido, solo él sale
+  (`{:ok, :retirado}`): antes de iniciar se quita de la partida; en curso deja de
+  jugar y conserva los puntos que llevaba.
   """
   def abandonar_partida(partida, jugador) do
     GenServer.call(partida, {:abandonar_partida, jugador})
@@ -147,6 +161,11 @@ defmodule Trivia.Partida do
       total_preguntas: total_preguntas,
       tiempo_pregunta: tiempo_pregunta,
       jugadores: [creador],
+      # Humanos de la partida (el creador primero), los que se retiraron en
+      # curso y el receptor de notificaciones de cada humano unido
+      humanos: [creador],
+      retirados: [],
+      receptores: %{},
       bots: [],
       bot_pids: %{},
       bot_opts: bot_opts,
@@ -193,6 +212,43 @@ defmodule Trivia.Partida do
   def handle_call({:registrar_oyente, pid}, _from, state) do
     listeners = if pid in state.listeners, do: state.listeners, else: [pid | state.listeners]
     {:reply, :ok, %{state | listeners: listeners}}
+  end
+
+  def handle_call({:unirse, jugador, receptor}, _from, state) do
+    cond do
+      state.estado != :esperando ->
+        {:reply, {:error, :partida_ya_iniciada}, state}
+
+      jugador in state.jugadores ->
+        {:reply, {:error, :jugador_en_partida}, state}
+
+      length(state.jugadores) >= @max_jugadores ->
+        {:reply, {:error, :partida_llena}, state}
+
+      true ->
+        listeners =
+          if is_pid(receptor) and receptor not in state.listeners,
+            do: state.listeners ++ [receptor],
+            else: state.listeners
+
+        new_state = %{
+          state
+          | jugadores: state.jugadores ++ [jugador],
+            humanos: state.humanos ++ [jugador],
+            puntajes: Map.put(state.puntajes, jugador, 0),
+            receptores: Map.put(state.receptores, jugador, receptor),
+            listeners: listeners
+        }
+
+        # Avisar a quienes ya estaban; el nuevo jugador recibe la respuesta
+        notificar(
+          state,
+          {:jugador_unido,
+           %{partida_id: state.id, jugador: jugador, jugadores: new_state.jugadores}}
+        )
+
+        {:reply, {:ok, info_publica(new_state)}, new_state}
+    end
   end
 
   def handle_call({:registrar_bot, nombre, pid}, _from, state) do
@@ -257,7 +313,7 @@ defmodule Trivia.Partida do
       state.estado != :esperando ->
         {:reply, {:error, :partida_ya_iniciada}, state}
 
-      length(state.bots) < @min_bots ->
+      length(state.humanos) == 1 and length(state.bots) < @min_bots ->
         {:reply, {:error, :minimo_dos_bots}, state}
 
       true ->
@@ -318,8 +374,16 @@ defmodule Trivia.Partida do
     jugador_str = to_string(jugador)
 
     cond do
+      jugador_str in state.humanos and jugador_str != state.creador ->
+        retirar_jugador(state, jugador_str)
+
       jugador_str == state.creador and state.estado == :esperando ->
-        # Cancela antes de iniciar (sin registrar en results.log)
+        # Cancela antes de iniciar (sin registrar en results.log) y avisa a los
+        # jugadores unidos; el creador ya recibe la respuesta del comando
+        state
+        |> Map.update!(:listeners, &List.delete(&1, state.cliente_pid))
+        |> notificar({:partida_cancelada, %{partida_id: state.id, creador: state.creador}})
+
         {:stop, :normal, :ok, state}
 
       jugador_str == state.creador and state.estado == :finalizada ->
@@ -473,7 +537,7 @@ defmodule Trivia.Partida do
       state.estado in [:finalizada, :pendiente_persistencia] ->
         {:reply, {:error, :partida_finalizada}, state}
 
-      not Map.has_key?(state.puntajes, jugador_str) ->
+      not Map.has_key?(state.puntajes, jugador_str) or jugador_str in state.retirados ->
         {:reply, {:error, :jugador_no_registrado}, state}
 
       not state.ronda_abierta ->
@@ -511,13 +575,7 @@ defmodule Trivia.Partida do
               updated_respuestas = Map.put(state.respuestas_ronda, jugador_str, resp_data)
               new_state = %{state | respuestas_ronda: updated_respuestas}
 
-              if map_size(updated_respuestas) >= length(state.jugadores) do
-                if new_state.timer_ref, do: Process.cancel_timer(new_state.timer_ref)
-                closed_state = cerrar_ronda(new_state, :todos_respondieron)
-                {:reply, :ok, closed_state}
-              else
-                {:reply, :ok, new_state}
-              end
+              {:reply, :ok, cerrar_si_todos_respondieron(new_state)}
             end
           end
         end
@@ -599,8 +657,8 @@ defmodule Trivia.Partida do
     nivel_pregunta = pregunta["nivel"] || pregunta[:nivel]
 
     {puntos_ronda, detalles_ronda, updated_puntajes} =
-      Enum.reduce(state.jugadores, {%{}, %{}, state.puntajes}, fn jugador,
-                                                                  {pts_acc, det_acc, punt_acc} ->
+      Enum.reduce(activos(state), {%{}, %{}, state.puntajes}, fn jugador,
+                                                                 {pts_acc, det_acc, punt_acc} ->
         case Map.get(state.respuestas_ronda, jugador) do
           nil ->
             puntos =
@@ -815,6 +873,63 @@ defmodule Trivia.Partida do
 
     notificar(state, notificacion_final)
     notificar_bots(state, notificacion_final)
+  end
+
+  # ── Jugadores unidos ────────────────────────────────────────────────
+
+  defp retirar_jugador(%{estado: :esperando} = state, jugador) do
+    new_state = %{
+      state
+      | jugadores: List.delete(state.jugadores, jugador),
+        humanos: List.delete(state.humanos, jugador),
+        puntajes: Map.delete(state.puntajes, jugador),
+        receptores: Map.delete(state.receptores, jugador),
+        listeners: List.delete(state.listeners, Map.get(state.receptores, jugador))
+    }
+
+    notificar(new_state, {:jugador_salio, %{partida_id: state.id, jugador: jugador}})
+    {:reply, {:ok, :retirado}, new_state}
+  end
+
+  # En curso: deja de jugar pero conserva su puntaje, que se guarda al final
+  defp retirar_jugador(%{estado: :en_curso} = state, jugador) do
+    new_state = %{
+      state
+      | retirados: [jugador | state.retirados],
+        listeners: List.delete(state.listeners, Map.get(state.receptores, jugador))
+    }
+
+    notificar(new_state, {:jugador_salio, %{partida_id: state.id, jugador: jugador}})
+
+    # Si solo faltaba su respuesta, la ronda ya puede cerrarse
+    new_state =
+      if new_state.ronda_abierta, do: cerrar_si_todos_respondieron(new_state), else: new_state
+
+    {:reply, {:ok, :retirado}, new_state}
+  end
+
+  # Finalizada o pendiente de persistencia: el resultado ya no cambia
+  defp retirar_jugador(state, _jugador), do: {:reply, {:ok, :retirado}, state}
+
+  defp activos(state), do: state.jugadores -- state.retirados
+
+  defp cerrar_si_todos_respondieron(state) do
+    if Enum.all?(activos(state), &Map.has_key?(state.respuestas_ronda, &1)) do
+      if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
+      cerrar_ronda(state, :todos_respondieron)
+    else
+      state
+    end
+  end
+
+  defp info_publica(state) do
+    %{
+      id: state.id,
+      creador: state.creador,
+      tema: state.tema,
+      nivel: state.nivel,
+      jugadores: state.jugadores
+    }
   end
 
   # ── Helpers privados ────────────────────────────────────────────────

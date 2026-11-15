@@ -17,6 +17,8 @@ defmodule Trivia.Servidor do
       {:ranking, nil | tema}
       {:create_game, tema, preguntas, tiempo}
       {:add_bot, "facil" | "dificil"}
+      :list_games
+      {:join_game, id}
       :start_game
       :leave_game
       {:answer, letra}
@@ -26,6 +28,7 @@ defmodule Trivia.Servidor do
   Las respuestas son autodescriptivas: `{:ok, {:conectado, usuario, :registrado | :autenticado}}`,
   `{:ok, :desconectado}`, `{:ok, {:score, estadisticas}}`, `{:ok, {:ranking, tema, entradas}}`,
   `{:ok, {:partida_creada, id, nivel}}`, `{:ok, {:bot_agregado, nombre}}`,
+  `{:ok, {:partidas, lista}}`, `{:ok, {:unido_partida, info}}`,
   `{:ok, :partida_iniciada}`, `{:ok, :partida_abandonada}`, `{:ok, :respuesta_registrada}`
   o `{:error, motivo}`.
 
@@ -121,8 +124,9 @@ defmodule Trivia.Servidor do
        when is_binary(usuario) and is_binary(clave) and is_pid(receptor),
        do: {:ok, {:connect, usuario, clave, receptor}}
 
-  defp validar(comando) when comando in [:disconnect, :score, :start_game, :leave_game],
-    do: {:ok, comando}
+  defp validar(comando)
+       when comando in [:disconnect, :score, :start_game, :leave_game, :list_games],
+       do: {:ok, comando}
 
   defp validar({:ranking, nil}), do: {:ok, {:ranking, nil}}
 
@@ -141,6 +145,15 @@ defmodule Trivia.Servidor do
   end
 
   defp validar({:answer, letra}) when is_binary(letra), do: {:ok, {:answer, letra}}
+
+  # Acepta "P-1001", "p-1001" o solo "1001"
+  defp validar({:join_game, id}) when is_binary(id) do
+    case String.upcase(String.trim(id)) do
+      "P-" <> numero when numero != "" -> {:ok, {:join_game, "P-" <> numero}}
+      "" -> {:error, :parametros_invalidos}
+      numero -> {:ok, {:join_game, "P-" <> numero}}
+    end
+  end
 
   defp validar(_otra), do: {:error, :comando_invalido}
 
@@ -217,6 +230,25 @@ defmodule Trivia.Servidor do
            GestorPartidas.agregar_bot(state.gestor_partidas, usuario, dificultad)
          end) do
       {:ok, nombre} -> {:ok, {:bot_agregado, nombre}}
+      {:error, motivo} -> {:error, normalizar_error(motivo)}
+    end
+  end
+
+  defp ejecutar(:list_games, _usuario, _receptor, _cliente, state) do
+    case protegido(fn -> GestorPartidas.listar_partidas_abiertas(state.gestor_partidas) end) do
+      {:error, _} = error -> error
+      partidas -> {:ok, {:partidas, partidas}}
+    end
+  end
+
+  defp ejecutar({:join_game, id}, usuario, receptor, _cliente, state) do
+    # Como en create_game, el receptor del cliente queda como oyente de la partida
+    case protegido(fn ->
+           GestorPartidas.unirse_partida(state.gestor_partidas, usuario, id,
+             cliente_pid: receptor
+           )
+         end) do
+      {:ok, info} -> {:ok, {:unido_partida, info}}
       {:error, motivo} -> {:error, normalizar_error(motivo)}
     end
   end

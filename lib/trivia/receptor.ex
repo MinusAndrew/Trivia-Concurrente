@@ -93,7 +93,26 @@ defmodule Trivia.Receptor do
   end
 
   def formatear_notificacion({:estado_partida, {:partida_creada, id, nivel}}) do
-    "Partida creada: #{id} (nivel #{nivel}). Agrega al menos 2 bots con add_bot y ejecuta start_game."
+    "Partida creada: #{id} (nivel #{nivel}). Agrega al menos 2 bots con add_bot " <>
+      "(u otros jugadores se unen con join_game #{id}) y ejecuta start_game."
+  end
+
+  def formatear_notificacion({:estado_partida, {:unido_partida, info}}) do
+    "Te uniste a la partida #{info.id} de #{info.creador} (#{info.tema}, nivel #{info.nivel}). " <>
+      "Jugadores: #{Enum.join(info.jugadores, ", ")}. Espera a que #{info.creador} ejecute start_game."
+  end
+
+  def formatear_notificacion({:jugador_unido, info}) when is_map(info) do
+    "#{info[:jugador]} se unió a la partida #{info[:partida_id]}. " <>
+      "Jugadores: #{Enum.join(info[:jugadores] || [], ", ")}."
+  end
+
+  def formatear_notificacion({:jugador_salio, info}) when is_map(info) do
+    "#{info[:jugador]} salió de la partida #{info[:partida_id]}."
+  end
+
+  def formatear_notificacion({:partida_cancelada, info}) when is_map(info) do
+    "#{info[:creador]} canceló la partida #{info[:partida_id]}. Ya puedes crear o unirte a otra."
   end
 
   def formatear_notificacion({:estado_partida, {:bot_agregado, nombre}}) do
@@ -237,6 +256,22 @@ defmodule Trivia.Receptor do
   end
 
   @doc """
+  Formatea la respuesta del comando `games`: partidas en espera para unirse.
+  """
+  def formatear_partidas([]),
+    do: "No hay partidas en espera. Crea una con create_game."
+
+  def formatear_partidas(partidas) when is_list(partidas) do
+    filas =
+      Enum.map(partidas, fn p ->
+        "  #{p.id}  #{p.tema} (#{p.nivel})  creada por #{p.creador}  " <>
+          "jugadores: #{Enum.join(p.jugadores, ", ")}"
+      end)
+
+    Enum.join(["Partidas en espera (únete con join_game <id>):" | filas], "\n")
+  end
+
+  @doc """
   Formatea la respuesta del comando `ranking [tema]` según la sección 4.2.
   """
   def formatear_ranking(tema, entradas) when is_list(entradas) do
@@ -323,7 +358,15 @@ defmodule Trivia.Receptor do
     do: "La partida ya fue iniciada."
 
   def formatear_error(:minimo_dos_bots),
-    do: "Debes agregar al menos 2 bots antes de iniciar la partida (add_bot <facil|dificil>)."
+    do:
+      "Debes agregar al menos 2 bots antes de iniciar la partida (add_bot <facil|dificil>) " <>
+        "o esperar a que otro jugador se una."
+
+  def formatear_error(:solo_creador),
+    do: "Solo el creador de la partida puede agregar bots o iniciarla."
+
+  def formatear_error(:partida_inexistente),
+    do: "No existe una partida activa con ese id. Usa games para ver las partidas en espera."
 
   def formatear_error(:dificultad_invalida),
     do: "Dificultad inválida. Usa 'facil' o 'dificil'."

@@ -11,6 +11,7 @@ defmodule Trivia.GestorPartidas do
     * Ubicar la partida de un jugador sin exponer el PID interno al cliente.
     * Atender notificaciones de reinicio de partidas (mediante `cast`) y actualizar el PID.
     * Notificar al creador cuando su partida se reinicia tras una falla anormal.
+    * Unir a otros jugadores humanos a una partida en espera (`unirse_partida/4`).
   """
   use GenServer
 
@@ -26,6 +27,7 @@ defmodule Trivia.GestorPartidas do
 
   @aviso_reinicio_plantilla "La partida %{id} falló y se reinició sin su progreso. Agrega los bots y ejecuta start_game para jugar de nuevo."
   @aviso_cierre_plantilla "La partida %{id} falló y no pudo reiniciarse. Ya puedes crear una nueva partida."
+  @aviso_invitado_plantilla "La partida %{id} falló y saliste de ella. Puedes unirte de nuevo con join_game %{id} cuando el creador la prepare."
 
   # ── Public API ──────────────────────────────────────────────────────
 
@@ -73,6 +75,57 @@ defmodule Trivia.GestorPartidas do
       gestor,
       {:crear_partida, creador, tema, total_preguntas, tiempo_pregunta, opts}
     )
+  end
+
+  @doc """
+  Une a `jugador` a la partida `id` mientras está en espera. Opciones:
+  `:cliente_pid` (receptor de las notificaciones del jugador).
+
+  Retorna `{:ok, info}` con `id`, `creador`, `tema`, `nivel` y `jugadores`, o
+  `{:error, motivo}` (`:partida_inexistente`, `:jugador_en_partida`,
+  `:partida_ya_iniciada`, `:partida_llena`, `:usuario_reservado`).
+  """
+  def unirse_partida(gestor \\ __MODULE__, jugador, id, opts \\ []) do
+    GenServer.call(
+      gestor,
+      {:unirse_partida, to_string(jugador), to_string(id), Keyword.get(opts, :cliente_pid)}
+    )
+  end
+
+  @doc """
+  Lista las partidas en espera a las que todavía se puede unir un jugador, con
+  sus jugadores actuales. Las partidas que no responden se omiten.
+  """
+  def listar_partidas_abiertas(gestor \\ __MODULE__) do
+    gestor
+    |> listar_partidas()
+    |> Enum.flat_map(fn %{id: id} ->
+      case estado_seguro(gestor, id) do
+        %{estado: :esperando} = estado ->
+          [
+            %{
+              id: id,
+              creador: estado.creador,
+              tema: estado.tema,
+              nivel: estado.nivel,
+              jugadores: estado.jugadores
+            }
+          ]
+
+        _ ->
+          []
+      end
+    end)
+    |> Enum.sort_by(& &1.id)
+  end
+
+  defp estado_seguro(gestor, id) do
+    case obtener_estado_partida(gestor, id) do
+      {:ok, estado} -> estado
+      {:error, _} -> nil
+    end
+  catch
+    :exit, _ -> nil
   end
 
   @doc """
@@ -127,7 +180,7 @@ defmodule Trivia.GestorPartidas do
   end
 
   def agregar_bot(gestor, jugador, dificultad) do
-    case obtener_pid_partida(gestor, jugador) do
+    case pid_para_creador(gestor, jugador) do
       {:ok, pid} -> Trivia.Partida.agregar_bot(pid, dificultad)
       {:error, _} = err -> err
     end
@@ -141,10 +194,15 @@ defmodule Trivia.GestorPartidas do
   end
 
   def iniciar_partida(gestor, jugador) do
-    case obtener_pid_partida(gestor, jugador) do
+    case pid_para_creador(gestor, jugador) do
       {:ok, pid} -> Trivia.Partida.iniciar_partida(pid)
       {:error, _} = err -> err
     end
+  end
+
+  # Agregar bots e iniciar son acciones del creador; con un id se permite (uso interno)
+  defp pid_para_creador(gestor, jugador_o_id) do
+    GenServer.call(gestor, {:pid_para_creador, to_string(jugador_o_id)})
   end
 
   @doc """
@@ -166,7 +224,8 @@ defmodule Trivia.GestorPartidas do
   end
 
   @doc """
-  Permite al jugador creador abandonar su partida activa.
+  Permite a un jugador abandonar su partida activa. Si es el creador, la partida
+  se cancela o termina; si se había unido, solo sale él.
   """
   def abandonar_partida(jugador) when is_binary(jugador) do
     abandonar_partida(__MODULE__, jugador)
@@ -273,6 +332,8 @@ defmodule Trivia.GestorPartidas do
                 total_preguntas: total_preguntas,
                 tiempo_pregunta: tiempo_pregunta,
                 cliente_pid: cliente_pid,
+                # Jugadores unidos: usuario => receptor de notificaciones
+                invitados: %{},
                 ref: ref
               }
 
@@ -330,12 +391,74 @@ defmodule Trivia.GestorPartidas do
     end
   end
 
+  def handle_call({:pid_para_creador, jugador_o_id}, from, state) do
+    case Map.fetch(state.jugador_partida, jugador_o_id) do
+      {:ok, id} when is_map_key(state.partidas, id) ->
+        if state.partidas[id].creador == jugador_o_id,
+          do: handle_call({:obtener_pid_partida, jugador_o_id}, from, state),
+          else: {:reply, {:error, :solo_creador}, state}
+
+      _ ->
+        handle_call({:obtener_pid_partida, jugador_o_id}, from, state)
+    end
+  end
+
+  def handle_call({:unirse_partida, jugador, id, receptor}, _from, state) do
+    cond do
+      Nivel.es_bot?(jugador) ->
+        {:reply, {:error, :usuario_reservado}, state}
+
+      Map.has_key?(state.jugador_partida, jugador) ->
+        {:reply, {:error, :jugador_en_partida}, state}
+
+      not Map.has_key?(state.partidas, id) ->
+        {:reply, {:error, :partida_inexistente}, state}
+
+      true ->
+        info = state.partidas[id]
+
+        # La partida nunca llama al gestor de forma síncrona: no hay interbloqueo
+        resultado =
+          try do
+            Trivia.Partida.unirse(info.pid, jugador, receptor)
+          catch
+            :exit, _ -> {:error, :partida_inexistente}
+          end
+
+        case resultado do
+          {:ok, datos} ->
+            info = %{info | invitados: Map.put(info.invitados, jugador, receptor)}
+
+            {:reply, {:ok, datos},
+             %{
+               state
+               | partidas: Map.put(state.partidas, id, info),
+                 jugador_partida: Map.put(state.jugador_partida, jugador, id)
+             }}
+
+          {:error, _} = error ->
+            {:reply, error, state}
+        end
+    end
+  end
+
   def handle_call({:abandonar_partida, jugador}, _from, state) do
     case Map.fetch(state.jugador_partida, jugador) do
       {:ok, id} ->
         case Map.fetch(state.partidas, id) do
           {:ok, info} ->
             case abandonar_seguro(info.pid, jugador) do
+              {:ok, :retirado} ->
+                # Un jugador unido sale; la partida sigue para los demás
+                info = %{info | invitados: Map.delete(info.invitados, jugador)}
+
+                {:reply, :ok,
+                 %{
+                   state
+                   | partidas: Map.put(state.partidas, id, info),
+                     jugador_partida: Map.delete(state.jugador_partida, jugador)
+                 }}
+
               :ok ->
                 # Limpiar registro del jugador y partida solo si se completó exitosamente
                 {:reply, :ok, quitar_partida(state, id, info)}
@@ -378,14 +501,22 @@ defmodule Trivia.GestorPartidas do
           Process.demonitor(info.ref, [:flush])
           nueva_ref = Process.monitor(nuevo_pid)
 
-          updated_info = %{info | pid: nuevo_pid, ref: nueva_ref}
+          # La partida reinicia solo con su creador: los jugadores unidos salen
+          updated_info = %{info | pid: nuevo_pid, ref: nueva_ref, invitados: %{}}
           new_partidas = Map.put(state.partidas, id, updated_info)
           new_monitores = state.monitores |> Map.delete(info.ref) |> Map.put(nueva_ref, id)
 
-          # Notificar al cliente creador
+          # Notificar al cliente creador y a los jugadores unidos
           notificar_reinicio(info.cliente_pid, id)
+          notificar_invitados(info, @aviso_invitado_plantilla)
 
-          {:noreply, %{state | partidas: new_partidas, monitores: new_monitores}}
+          {:noreply,
+           %{
+             state
+             | partidas: new_partidas,
+               monitores: new_monitores,
+               jugador_partida: Map.drop(state.jugador_partida, Map.keys(info.invitados))
+           }}
         else
           # Registro inicial del PID si aún no estaba asignado
           nueva_ref = if info.ref, do: info.ref, else: Process.monitor(nuevo_pid)
@@ -401,16 +532,8 @@ defmodule Trivia.GestorPartidas do
     end
   end
 
-  def handle_cast({:partida_finalizada, id, creador}, state) do
-    creador_str = to_string(creador)
-
-    new_jugadores =
-      case Map.fetch(state.jugador_partida, creador_str) do
-        {:ok, ^id} -> Map.delete(state.jugador_partida, creador_str)
-        _ -> state.jugador_partida
-      end
-
-    {:noreply, %{state | jugador_partida: new_jugadores}}
+  def handle_cast({:partida_finalizada, id, _creador}, state) do
+    {:noreply, %{state | jugador_partida: liberar_jugadores(state.jugador_partida, id)}}
   end
 
   @impl true
@@ -451,6 +574,7 @@ defmodule Trivia.GestorPartidas do
       {:ok, %{pid: ^pid_caido} = info} ->
         # Ningún `reportar_pid` reemplazó al proceso caído: la partida no se reinició
         notificar_cierre(info.cliente_pid, id)
+        notificar_invitados(info, @aviso_cierre_plantilla)
         {:noreply, quitar_partida(state, id, info)}
 
       _ ->
@@ -466,18 +590,17 @@ defmodule Trivia.GestorPartidas do
   defp quitar_partida(state, id, info) do
     Process.demonitor(info.ref, [:flush])
 
-    new_jugadores =
-      case Map.fetch(state.jugador_partida, info.creador) do
-        {:ok, ^id} -> Map.delete(state.jugador_partida, info.creador)
-        _ -> state.jugador_partida
-      end
-
     %{
       state
       | partidas: Map.delete(state.partidas, id),
-        jugador_partida: new_jugadores,
+        jugador_partida: liberar_jugadores(state.jugador_partida, id),
         monitores: Map.delete(state.monitores, info.ref)
     }
+  end
+
+  # Libera a todos los jugadores (creador y unidos) asociados a la partida `id`
+  defp liberar_jugadores(jugador_partida, id) do
+    Map.reject(jugador_partida, fn {_jugador, id_partida} -> id_partida == id end)
   end
 
   # Una llamada a una partida muerta sale con :exit y tumbaría al gestor.
@@ -620,6 +743,15 @@ defmodule Trivia.GestorPartidas do
     Process.send(cliente_pid, {:partida_reiniciada, id, mensaje}, [:noconnect])
     Process.send(cliente_pid, {:notificacion, mensaje}, [:noconnect])
     :ok
+  end
+
+  defp notificar_invitados(info, plantilla) do
+    mensaje = String.replace(plantilla, "%{id}", info.id)
+
+    info.invitados
+    |> Map.values()
+    |> Enum.filter(&is_pid/1)
+    |> Enum.each(&Process.send(&1, {:notificacion, mensaje}, [:noconnect]))
   end
 
   defp notificar_cierre(nil, _id), do: :ok
