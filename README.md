@@ -41,6 +41,9 @@ Levanta el nodo `servidor@tu_host` con la cookie `trivia`, inicia el árbol del 
 | `--nombre <nombre>` | `servidor` | Nombre corto del nodo del servidor. |
 | `--cookie <cookie>` | `trivia` | Cookie compartida con los clientes. |
 | `--datos <directorio>` | `data` | Directorio con `questions.json`, `users.json` y `results.log`. |
+| `--publico` | — | Modo red: acepta jugadores de otras máquinas (ver sección 3.1). |
+| `--host <ip o dominio>` | IP local | IP o dominio con que los jugadores llegan al servidor. Implica `--publico`. |
+| `--puerto <n>` | `9100` | Único puerto TCP que usa el modo red. |
 
 **Opción A — Servidor en consola interactiva IEx (recomendado para sustentación):**
 ```bash
@@ -80,6 +83,7 @@ Abre directamente la consola `trivia>` conectada a `servidor@<esta máquina>`. C
 | `--servidor <nodo>` | `servidor` | Nodo del servidor: `nombre` (se completa con el host de esta máquina) o `nombre@host` para un servidor en otra máquina. |
 | `--nombre <nombre>` | `jugador_<n>` | Nombre corto del nodo del jugador. |
 | `--cookie <cookie>` | `trivia` | Debe coincidir con la del servidor. |
+| `--puerto <n>` | `9100` | Puerto del servidor cuando se conecta a una IP o dominio (modo red). |
 
 Si el servidor se levantó con `--nombre otro`, conecta con `mix trivia.cliente --servidor otro`; el servidor imprime al arrancar el comando exacto a usar.
 
@@ -105,6 +109,35 @@ Las opciones siguientes hacen lo mismo paso a paso desde IEx.
    ```elixir
    Trivia.Cliente.iniciar(:"servidor@tu_host")
    ```
+
+### 3.1 Jugar desde otra máquina (modo red)
+
+Los clientes ya se comunican con el servidor por nombre de nodo, así que jugar desde otra computadora solo requiere configurar la red. El modo red usa nombres largos (`servidor@192.168.1.20`) y **un único puerto TCP** (por defecto `9100`), en lugar del puerto aleatorio de Erlang.
+
+**En la máquina del servidor:**
+```bash
+# Misma red local (Wi-Fi/LAN): usa la IP local detectada automáticamente
+mix trivia.servidor --publico
+
+# Por Internet: la IP pública o un dominio (p. ej. DuckDNS) que apunte al router
+mix trivia.servidor --host 203.0.113.5
+```
+
+El servidor genera una cookie aleatoria e imprime el comando exacto para los jugadores, por ejemplo:
+```bash
+mix trivia.cliente --servidor servidor@203.0.113.5 --cookie <cookie_impresa_por_el_servidor>
+```
+
+**En la máquina de cada jugador** (con Elixir y el proyecto clonado): ejecutar ese comando. Cuando el host del servidor es una IP o un dominio, el cliente entra solo en modo red. El cliente no abre puertos, solo se conecta, así que del lado del jugador no hace falta configurar el router.
+
+**Para jugar por Internet**, en el router del servidor:
+1. Redirigir el puerto TCP `9100` (o el de `--puerto`) a la IP local de la máquina del servidor.
+2. Si algún jugador usa Erlang/OTP anterior a 27.2, redirigir también el `4369` (`epmd`). Desde OTP 27.2 el cliente se conecta directo al puerto del servidor sin consultar `epmd`.
+3. Permitir conexiones entrantes para `beam.smp` si el firewall del sistema lo pregunta.
+
+Notas:
+- El nombre del servidor debe ser el mismo que escriben los jugadores. Con `--host 203.0.113.5`, quien esté en la misma red del servidor también debe usar `servidor@203.0.113.5`, y muchos routers no permiten salir y volver a entrar por la IP pública (*hairpin NAT*). Para probar, conéctate desde otra red, como los datos del celular.
+- La cookie da acceso completo al nodo del servidor (Erlang permite ejecutar código remoto entre nodos con la misma cookie) y el tráfico no va cifrado. Compártela solo con los jugadores y apaga el servidor al terminar.
 
 ---
 
@@ -172,7 +205,7 @@ Trivia.Supervisor (one_for_one)
     * `users.json` y `results.log` son datos de ejecución: el servidor los crea si no existen y no se versionan en git.
 11. **`Trivia.Nivel`** y **`Trivia.Puntaje`**: Módulos funcionales puros para cálculo de puntajes, bonificación por rapidez, niveles, reparto y estadísticas históricas.
 12. **`Trivia.Cliente`** y **`Trivia.Receptor`**: Módulos del nodo cliente. `Trivia.Cliente` traduce comandos de consola en peticiones al servidor remoto y `Trivia.Receptor` corre en un proceso separado (con historial acotado a las 100 notificaciones más recientes) para recibir e imprimir notificaciones asíncronas sin bloquear la lectura del teclado.
-13. **`mix trivia.servidor`** y **`mix trivia.cliente`** (con `Trivia.CLI`): tareas Mix que levantan el nodo distribuido (nombre, cookie y `epmd`), fijan el rol con `TRIVIA_ROLE` antes de iniciar la aplicación y luego arrancan el servidor o abren la consola del cliente, sin pasar por IEx.
+13. **`mix trivia.servidor`** y **`mix trivia.cliente`** (con `Trivia.CLI`): tareas Mix que levantan el nodo distribuido (nombre, cookie y `epmd`), fijan el rol con `TRIVIA_ROLE` antes de iniciar la aplicación y luego arrancan el servidor o abren la consola del cliente, sin pasar por IEx. En modo red (sección 3.1) usan nombres largos y un único puerto fijo; los clientes se inician sin puerto de escucha, así que solo se conectan al servidor y nunca entre sí.
 
 ---
 

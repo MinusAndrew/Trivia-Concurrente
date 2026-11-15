@@ -5,14 +5,17 @@ defmodule Mix.Tasks.Trivia.Cliente do
   Abre la consola interactiva de un jugador sin abrir IEx.
 
       mix trivia.cliente [--nombre pedro] [--servidor servidor] [--cookie trivia]
+      mix trivia.cliente --servidor servidor@203.0.113.5 --cookie <cookie> [--puerto 9100]
 
   Opciones:
 
-    * `--nombre` – nombre corto del nodo del jugador (por defecto uno aleatorio,
+    * `--nombre` – nombre del nodo del jugador (por defecto uno aleatorio,
       `jugador_<n>`, para poder abrir varios clientes en la misma máquina).
     * `--servidor` – nodo del servidor: `nombre` (se completa con el host de esta
-      máquina) o `nombre@host` (por defecto `servidor`).
+      máquina) o `nombre@host` (por defecto `servidor`). Si el host es una IP o
+      un dominio, el cliente usa el modo red para conectarse desde otra máquina.
     * `--cookie` – cookie compartida con el servidor (por defecto `trivia`).
+    * `--puerto` – puerto del servidor en modo red (por defecto `9100`).
     * `--help` – muestra esta ayuda.
 
   Equivale a `iex --sname pedro --cookie trivia -S mix` seguido de
@@ -37,7 +40,9 @@ defmodule Mix.Tasks.Trivia.Cliente do
     # Un nodo cliente nunca levanta su propio servidor
     System.put_env("TRIVIA_ROLE", "client")
 
-    case CLI.iniciar_nodo(opciones.nombre, opciones.cookie) do
+    red = if opciones.red, do: Map.put(opciones.red, :rol, :cliente)
+
+    case CLI.iniciar_nodo(opciones.nombre, opciones.cookie, red) do
       {:ok, _nodo} -> :ok
       {:error, mensaje} -> Mix.raise(mensaje)
     end
