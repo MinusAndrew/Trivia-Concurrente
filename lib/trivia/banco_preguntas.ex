@@ -8,6 +8,7 @@ defmodule Trivia.BancoPreguntas do
 
   alias Trivia.Nivel
   alias Trivia.Persistencia
+  alias Trivia.Tema
 
   @niveles_validos ["basico", "intermedio", "avanzado", :basico, :intermedio, :avanzado]
   @opciones_validas ["A", "B", "C", "D"]
@@ -121,18 +122,11 @@ defmodule Trivia.BancoPreguntas do
   Filtra preguntas por tema.
   """
   def filtrar_por_tema(preguntas, tema) when is_list(preguntas) do
-    tema_str = String.downcase(to_string(tema))
-    tema_stem = String.trim_trailing(tema_str, "s")
+    tema_norm = Tema.normalizar(tema)
 
     Enum.filter(preguntas, fn p ->
       t = p["tema"] || p[:tema]
-
-      if t != nil do
-        t_str = String.downcase(to_string(t))
-        t_str == tema_str or String.trim_trailing(t_str, "s") == tema_stem
-      else
-        false
-      end
+      t != nil and Tema.normalizar(t) == tema_norm
     end)
   end
 
@@ -167,14 +161,16 @@ defmodule Trivia.BancoPreguntas do
   end
 
   @doc """
-  Lista los temas disponibles en una colección de preguntas.
+  Lista los temas disponibles en una colección de preguntas. Las variantes de un
+  mismo tema (según `Trivia.Tema.normalizar/1`) se listan una sola vez, con el
+  texto de su primera aparición.
   """
   def listar_temas(preguntas) when is_list(preguntas) do
     preguntas
     |> Enum.map(fn pregunta -> pregunta["tema"] || pregunta[:tema] end)
     |> Enum.reject(fn tema -> is_nil(tema) end)
     |> Enum.map(fn tema -> to_string(tema) end)
-    |> Enum.uniq()
+    |> Enum.uniq_by(fn tema -> Tema.normalizar(tema) end)
   end
 
   # ── Sorteo y Selección ──────────────────────────────────────────────

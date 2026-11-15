@@ -6,6 +6,8 @@ defmodule Trivia.Nivel do
   No realiza acceso a procesos ni al sistema de archivos.
   """
 
+  alias Trivia.Tema
+
   @doc """
   Calcula el nivel de un jugador a partir de su puntaje acumulado en un tema.
 
@@ -127,21 +129,10 @@ defmodule Trivia.Nivel do
   """
   def ranking_historico(historial, tema \\ nil) do
     records = parse_history_records(historial)
-    tema_filtro = if tema, do: String.downcase(to_string(tema)), else: nil
-    tema_stem = if tema_filtro, do: String.trim_trailing(tema_filtro, "s"), else: nil
 
     filtrados =
-      if tema_filtro do
-        Enum.filter(records, fn r ->
-          t = extract_tema(r)
-
-          if t do
-            t_str = String.downcase(to_string(t))
-            t_str == tema_filtro or String.trim_trailing(t_str, "s") == tema_stem
-          else
-            false
-          end
-        end)
+      if tema do
+        filtrar_por_tema(records, tema)
       else
         records
       end
@@ -174,7 +165,8 @@ defmodule Trivia.Nivel do
 
     * `:puntaje_total` – suma de sus puntajes en todas las partidas.
     * `:partidas_jugadas` – partidas del historial en las que aparece.
-    * `:temas` – lista ordenada por tema de `%{tema, puntaje, nivel}`.
+    * `:temas` – lista ordenada por tema de `%{tema, puntaje, nivel}`; las variantes
+      de un mismo tema (`Trivia.Tema.normalizar/1`) se suman en una sola entrada.
 
   Los bots no tienen estadísticas: para un nombre con prefijo `bot_` se
   devuelven valores vacíos.
@@ -200,14 +192,15 @@ defmodule Trivia.Nivel do
         end)
       end
 
+    # Se agrupa por tema normalizado y se muestra el texto de su primera aparición
     temas =
       participaciones
-      |> Enum.group_by(fn {tema, _} -> tema end, fn {_, pts} -> pts end)
-      |> Enum.map(fn {tema, puntos} ->
-        total = Enum.sum(puntos)
+      |> Enum.group_by(fn {tema, _} -> Tema.normalizar(tema) end)
+      |> Enum.map(fn {_tema_norm, [{tema, _} | _] = grupo} ->
+        total = Enum.reduce(grupo, 0, fn {_, pts}, acc -> acc + pts end)
         %{tema: tema, puntaje: total, nivel: calcular(total)}
       end)
-      |> Enum.sort_by(fn entrada -> entrada.tema end)
+      |> Enum.sort_by(fn entrada -> Tema.normalizar(entrada.tema) end)
 
     %{
       usuario: usuario_str,
@@ -244,24 +237,20 @@ defmodule Trivia.Nivel do
   end
 
   defp calcular_puntaje_acumulado(historial, usuario, tema) do
-    records = parse_history_records(historial)
-    tema_norm = String.downcase(tema)
-    tema_stem = String.trim_trailing(tema_norm, "s")
-    user_norm = usuario
-
-    records
-    |> Enum.filter(fn r ->
-      t = extract_tema(r)
-
-      if t != nil do
-        t_str = String.downcase(to_string(t))
-        t_str == tema_norm or String.trim_trailing(t_str, "s") == tema_stem
-      else
-        false
-      end
-    end)
+    historial
+    |> parse_history_records()
+    |> filtrar_por_tema(tema)
     |> Enum.reduce(0, fn r, acc ->
-      acc + extract_user_points(r, user_norm)
+      acc + extract_user_points(r, usuario)
+    end)
+  end
+
+  defp filtrar_por_tema(records, tema) do
+    tema_norm = Tema.normalizar(tema)
+
+    Enum.filter(records, fn r ->
+      t = extract_tema(r)
+      t != nil and Tema.normalizar(t) == tema_norm
     end)
   end
 
