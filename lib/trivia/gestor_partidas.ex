@@ -504,7 +504,7 @@ defmodule Trivia.GestorPartidas do
 
     case obtener_historial_seguro(persistencia) do
       {:ok, historial} ->
-        ids_historial = Enum.map(historial, &Map.get(&1, "id"))
+        ids_historial = Enum.map(historial, fn registro -> Map.get(registro, "id") end)
         max_numero_id(ids_historial ++ ids_vivos) + 1
 
       {:error, reason} ->

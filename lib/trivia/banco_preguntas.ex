@@ -86,7 +86,7 @@ defmodule Trivia.BancoPreguntas do
     keys =
       opciones
       |> Map.keys()
-      |> Enum.map(&to_string/1)
+      |> Enum.map(fn key -> to_string(key) end)
       |> Enum.sort()
 
     if keys == @opciones_validas and
@@ -171,9 +171,9 @@ defmodule Trivia.BancoPreguntas do
   """
   def listar_temas(preguntas) when is_list(preguntas) do
     preguntas
-    |> Enum.map(&(&1["tema"] || &1[:tema]))
-    |> Enum.reject(&is_nil/1)
-    |> Enum.map(&to_string/1)
+    |> Enum.map(fn pregunta -> pregunta["tema"] || pregunta[:tema] end)
+    |> Enum.reject(fn tema -> is_nil(tema) end)
+    |> Enum.map(fn tema -> to_string(tema) end)
     |> Enum.uniq()
   end
 
@@ -288,7 +288,7 @@ defmodule Trivia.BancoPreguntas do
   Elimina la clave `"respuesta"` de una lista de preguntas.
   """
   def ocultar_respuestas(preguntas) when is_list(preguntas) do
-    Enum.map(preguntas, &ocultar_respuesta/1)
+    Enum.map(preguntas, fn pregunta -> ocultar_respuesta(pregunta) end)
   end
 
   @doc """

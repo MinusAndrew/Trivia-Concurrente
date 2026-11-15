@@ -106,7 +106,7 @@ defmodule Trivia.Bot do
   @spec opciones_incorrectas(term()) :: [String.t()]
   def opciones_incorrectas(respuesta_correcta) do
     correcta = Puntaje.normalizar_respuesta(respuesta_correcta)
-    Enum.filter(@opciones_validas, &(&1 != correcta))
+    Enum.filter(@opciones_validas, fn opcion -> opcion != correcta end)
   end
 
   @doc """

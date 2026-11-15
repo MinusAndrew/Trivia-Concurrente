@@ -103,7 +103,9 @@ defmodule Trivia.IdsPartidaTest do
   end
 
   defp ids_historial(persistencia) do
-    persistencia |> Persistencia.obtener_historial() |> Enum.map(& &1["id"])
+    persistencia
+    |> Persistencia.obtener_historial()
+    |> Enum.map(fn registro -> registro["id"] end)
   end
 
   describe "contador de ids recuperado del historial" do
@@ -144,7 +146,7 @@ defmodule Trivia.IdsPartidaTest do
       refute id in raros
 
       terminar_por_abandono(g, "pedro")
-      assert Enum.count(ids_historial(p), &(&1 == id)) == 1
+      assert Enum.count(ids_historial(p), fn registrado -> registrado == id end) == 1
     end
 
     test "si el historial está malformado no inventa un contador bajo ni toca el archivo", ctx do

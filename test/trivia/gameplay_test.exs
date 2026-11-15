@@ -91,14 +91,16 @@ defmodule Trivia.GameplayTest do
       assert length(estado.preguntas) == 5
 
       # Todos los temas corresponden a ciencias
-      assert Enum.all?(estado.preguntas, &(&1["tema"] in ["ciencias", "ciencia"]))
+      assert Enum.all?(estado.preguntas, fn pregunta ->
+               pregunta["tema"] in ["ciencias", "ciencia"]
+             end)
 
       # Sin preguntas duplicadas
-      enunciados = Enum.map(estado.preguntas, & &1["enunciado"])
+      enunciados = Enum.map(estado.preguntas, fn pregunta -> pregunta["enunciado"] end)
       assert length(Enum.uniq(enunciados)) == 5
 
       # Orden de menor a mayor dificultad (4 básicas y 1 intermedia para basico con 5)
-      niveles = Enum.map(estado.preguntas, & &1["nivel"])
+      niveles = Enum.map(estado.preguntas, fn pregunta -> pregunta["nivel"] end)
       assert niveles == ["basico", "basico", "basico", "basico", "intermedio"]
     end
   end
@@ -480,7 +482,7 @@ defmodule Trivia.GameplayTest do
 
       # Verificar que se persistió exactamente UNA vez en el historial
       historial = Persistencia.obtener_historial(p)
-      partidas_persistidas = Enum.filter(historial, &(&1["id"] == id))
+      partidas_persistidas = Enum.filter(historial, fn registro -> registro["id"] == id end)
       assert length(partidas_persistidas) == 1
 
       # El creador queda liberado en el gestor para crear otra partida
@@ -526,7 +528,7 @@ defmodule Trivia.GameplayTest do
       assert :ok = Partida.abandonar_partida(pid, "pedro")
 
       historial = Persistencia.obtener_historial(p)
-      partidas_persistidas = Enum.filter(historial, &(&1["id"] == id))
+      partidas_persistidas = Enum.filter(historial, fn registro -> registro["id"] == id end)
       assert length(partidas_persistidas) == 1
     end
 
@@ -626,7 +628,7 @@ defmodule Trivia.GameplayTest do
 
       # 7. El historial contiene exactamente UNA entrada (idempotente)
       historial = Persistencia.obtener_historial(pers_name)
-      partidas_persistidas = Enum.filter(historial, &(&1["id"] == id))
+      partidas_persistidas = Enum.filter(historial, fn registro -> registro["id"] == id end)
       assert length(partidas_persistidas) == 1
 
       # 8. El creador queda liberado
@@ -656,7 +658,7 @@ defmodule Trivia.GameplayTest do
 
       # El resultado fue persistido
       historial = Persistencia.obtener_historial(p)
-      partidas_persistidas = Enum.filter(historial, &(&1["id"] == id))
+      partidas_persistidas = Enum.filter(historial, fn registro -> registro["id"] == id end)
       assert length(partidas_persistidas) == 1
 
       [reg] = partidas_persistidas
@@ -720,7 +722,7 @@ defmodule Trivia.GameplayTest do
 
       # 6. Historial contiene exactamente UNA entrada
       historial = Persistencia.obtener_historial(pers_name)
-      partidas_persistidas = Enum.filter(historial, &(&1["id"] == id))
+      partidas_persistidas = Enum.filter(historial, fn registro -> registro["id"] == id end)
       assert length(partidas_persistidas) == 1
 
       # 7. El creador queda finalmente liberado

@@ -194,7 +194,7 @@ defmodule Trivia.PersistenciaTest do
 
       h = Trivia.Persistencia.obtener_historial(s)
       assert length(h) == 2
-      assert Enum.map(h, & &1["id"]) == ["P-101", "P-102"]
+      assert Enum.map(h, fn registro -> registro["id"] end) == ["P-101", "P-102"]
     end
   end
 
