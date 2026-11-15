@@ -385,10 +385,10 @@ defmodule Trivia.PartidasTest do
       gestor: g,
       tmp_dir: dir
     } do
-      # Corromper results.log con contenido inválido
-      File.write!(Path.join(dir, "results.log"), "{{invalid_ndjson}}")
+      # Un directorio en lugar de results.log produce un error de lectura real
+      File.mkdir_p!(Path.join(dir, "results.log"))
 
-      assert {:error, :json_invalido} =
+      assert {:error, :eisdir} =
                GestorPartidas.crear_partida(g, "ana", "ciencias", 5, 15)
     end
   end

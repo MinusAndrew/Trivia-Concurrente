@@ -1,6 +1,8 @@
 defmodule Trivia.PersistenciaTest do
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureLog
+
   @moduletag :persistencia
 
   setup do
@@ -167,7 +169,7 @@ defmodule Trivia.PersistenciaTest do
       assert length(lines) == 1
     end
 
-    test "historial malformado devuelve error y no escribe la nueva línea", %{
+    test "una línea corrupta se conserva intacta y el nuevo resultado se agrega al final", %{
       server: s,
       tmp_dir: dir
     } do
@@ -177,12 +179,33 @@ defmodule Trivia.PersistenciaTest do
 
       resultado = %{"id" => "P-999", "tema" => "historia"}
 
-      assert {:error, :json_invalido} =
-               Trivia.Persistencia.registrar_resultado_unico(resultado, s)
+      capture_log(fn ->
+        assert :ok = Trivia.Persistencia.registrar_resultado_unico(resultado, s)
+      end)
 
-      # El archivo no contiene la nueva partida
-      content = File.read!(results_file)
-      refute content =~ "P-999"
+      assert File.read!(results_file) == "{corrupt_ndjson\n" <> Jason.encode!(resultado) <> "\n"
+      assert [%{"id" => "P-999"}] = Trivia.Persistencia.obtener_historial(s)
+    end
+
+    test "una última línea incompleta no se fusiona con el resultado nuevo", %{
+      server: s,
+      tmp_dir: dir
+    } do
+      # Escritura interrumpida: la última línea quedó sin "\n"
+      results_file = Path.join(dir, "results.log")
+      File.write!(results_file, ~s({"id":"P-1"}\n{"id":"P-2","tem))
+
+      capture_log(fn ->
+        assert :ok = Trivia.Persistencia.registrar_resultado_unico(%{"id" => "P-3"}, s)
+      end)
+
+      assert File.read!(results_file) ==
+               ~s({"id":"P-1"}\n{"id":"P-2","tem\n{"id":"P-3"}\n)
+
+      assert Enum.map(Trivia.Persistencia.obtener_historial(s), fn r -> r["id"] end) == [
+               "P-1",
+               "P-3"
+             ]
     end
 
     test "partidas con IDs distintos se registran normalmente", %{server: s} do
@@ -311,12 +334,98 @@ defmodule Trivia.PersistenciaTest do
       assert File.read!(path) == corrupt_content
     end
 
-    test "obtener_historial retorna error cuando results.log contiene líneas inválidas", %{
+    test "obtener_historial omite y reporta las líneas inválidas sin modificar el archivo", %{
       server: s,
       tmp_dir: dir
     } do
-      File.write!(Path.join(dir, "results.log"), "linea_no_json\n")
-      assert {:error, :json_invalido} = Trivia.Persistencia.obtener_historial(s)
+      contenido = ~s({"id":"P-1"}\nlinea_no_json\n[1,2]\n\n{"id":"P-2"}\n)
+      path = Path.join(dir, "results.log")
+      File.write!(path, contenido)
+
+      log =
+        capture_log(fn ->
+          send(self(), {:historial, Trivia.Persistencia.obtener_historial(s)})
+        end)
+
+      assert_received {:historial, historial}
+      assert Enum.map(historial, fn r -> r["id"] end) == ["P-1", "P-2"]
+      assert log =~ "2 línea(s) corrupta(s)"
+      assert log =~ "líneas 2, 3"
+      assert File.read!(path) == contenido
+
+      # El mismo conjunto de líneas corruptas se reporta una sola vez
+      assert capture_log(fn -> Trivia.Persistencia.obtener_historial(s) end) == ""
+    end
+
+    test "obtener_historial retorna error si results.log no se puede leer", %{
+      server: s,
+      tmp_dir: dir
+    } do
+      File.mkdir_p!(Path.join(dir, "results.log"))
+      assert {:error, :eisdir} = Trivia.Persistencia.obtener_historial(s)
+    end
+  end
+
+  # ── Escritura atómica de users.json ─────────────────────────────────
+
+  describe "escritura atómica de users.json" do
+    test "users.json se reemplaza por un archivo nuevo y no quedan temporales", %{
+      server: s,
+      tmp_dir: dir
+    } do
+      path = Path.join(dir, "users.json")
+      :ok = Trivia.Persistencia.registrar_usuario("ana", "1", s)
+      {:ok, %File.Stat{inode: inode_antes}} = File.stat(path)
+
+      :ok = Trivia.Persistencia.registrar_usuario("beto", "2", s)
+      {:ok, %File.Stat{inode: inode_despues}} = File.stat(path)
+
+      # Renombrar un temporal cambia el inode; reescribir en el sitio no
+      refute inode_despues == inode_antes
+      assert File.ls!(dir) |> Enum.filter(fn f -> f =~ "users.json" end) == ["users.json"]
+      assert length(Trivia.Persistencia.listar_usuarios(s)) == 2
+    end
+
+    test "un lector concurrente nunca ve un users.json parcial", %{server: s, tmp_dir: dir} do
+      path = Path.join(dir, "users.json")
+      :ok = Trivia.Persistencia.registrar_usuario("inicial", "x", s)
+      test_pid = self()
+
+      lector =
+        spawn_link(fn ->
+          leer = fn leer, lecturas, parciales ->
+            receive do
+              :fin -> send(test_pid, {:lecturas, lecturas, parciales})
+            after
+              0 ->
+                parcial =
+                  case File.read(path) do
+                    {:ok, contenido} -> match?({:error, _}, Jason.decode(contenido))
+                    {:error, _} -> true
+                  end
+
+                leer.(leer, lecturas + 1, if(parcial, do: parciales + 1, else: parciales))
+            end
+          end
+
+          leer.(leer, 0, 0)
+        end)
+
+      for i <- 1..100, do: :ok = Trivia.Persistencia.registrar_usuario("u#{i}", "x", s)
+      send(lector, :fin)
+
+      assert_receive {:lecturas, lecturas, 0}, 5000
+      assert lecturas > 0
+      assert length(Trivia.Persistencia.listar_usuarios(s)) == 101
+    end
+
+    test "un users.json corrupto sigue sin sobreescribirse", %{server: s, tmp_dir: dir} do
+      path = Path.join(dir, "users.json")
+      File.write!(path, "CORRUPTO")
+
+      assert {:error, :json_invalido} = Trivia.Persistencia.registrar_usuario("ana", "1", s)
+      assert File.read!(path) == "CORRUPTO"
+      assert File.ls!(dir) |> Enum.filter(fn f -> f =~ "users.json" end) == ["users.json"]
     end
   end
 end
