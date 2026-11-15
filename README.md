@@ -29,6 +29,19 @@ mix compile
 
 El servidor central se levanta en su propio nodo Erlang. Cuando el nombre corto del nodo comienza por `servidor` (o `server`), o cuando se define `TRIVIA_ROLE=server`, `Trivia.Application` inicia automáticamente todo el árbol de supervisión (`Trivia.Supervisor`, `Trivia.Persistencia`, `Trivia.SupervisorPartidas`, `Trivia.GestorPartidas`, `Trivia.GestorJugadores` y `Trivia.Servidor`).
 
+**Forma rápida — tarea Mix (sin IEx):**
+```bash
+mix trivia.servidor
+```
+
+Levanta el nodo `servidor@tu_host` con la cookie `trivia`, inicia el árbol del servidor y muestra el comando exacto para conectar jugadores. Se detiene con Ctrl+C dos veces. Opciones (ver `mix help trivia.servidor`):
+
+| Opción | Por defecto | Descripción |
+|---|---|---|
+| `--nombre <nombre>` | `servidor` | Nombre corto del nodo del servidor. |
+| `--cookie <cookie>` | `trivia` | Cookie compartida con los clientes. |
+| `--datos <directorio>` | `data` | Directorio con `questions.json`, `users.json` y `results.log`. |
+
 **Opción A — Servidor en consola interactiva IEx (recomendado para sustentación):**
 ```bash
 iex --sname servidor --cookie trivia -S mix
@@ -54,6 +67,23 @@ elixir --sname servidor --cookie trivia -S mix run --no-halt
 ### 3. Cómo Levantar y Conectar los Clientes (Consolas 2 y 3)
 
 Cada jugador abre una terminal independiente con su propio `--sname` y la misma `--cookie trivia`. Los nodos cuyo nombre no comienza por `servidor`/`server` arrancan en modo `:client` (sin levantar un servidor local).
+
+**Forma rápida — tarea Mix (sin IEx):** en cada terminal de jugador, en la misma máquina que el servidor:
+```bash
+mix trivia.cliente
+```
+
+Abre directamente la consola `trivia>` conectada a `servidor@<esta máquina>`. Cada cliente recibe un nombre de nodo aleatorio (`jugador_<n>`), así que se pueden abrir varios a la vez sin configurar nada. El usuario del juego se elige después con `connect <usuario> <clave>`. Opciones (ver `mix help trivia.cliente`):
+
+| Opción | Por defecto | Descripción |
+|---|---|---|
+| `--servidor <nodo>` | `servidor` | Nodo del servidor: `nombre` (se completa con el host de esta máquina) o `nombre@host` para un servidor en otra máquina. |
+| `--nombre <nombre>` | `jugador_<n>` | Nombre corto del nodo del jugador. |
+| `--cookie <cookie>` | `trivia` | Debe coincidir con la del servidor. |
+
+Si el servidor se levantó con `--nombre otro`, conecta con `mix trivia.cliente --servidor otro`; el servidor imprime al arrancar el comando exacto a usar.
+
+Las opciones siguientes hacen lo mismo paso a paso desde IEx.
 
 #### Consola 2 — Cliente 1 (ejemplo: Pedro)
 1. Levantar el nodo de Pedro:
@@ -142,6 +172,7 @@ Trivia.Supervisor (one_for_one)
     * `users.json` y `results.log` son datos de ejecución: el servidor los crea si no existen y no se versionan en git.
 11. **`Trivia.Nivel`** y **`Trivia.Puntaje`**: Módulos funcionales puros para cálculo de puntajes, bonificación por rapidez, niveles, reparto y estadísticas históricas.
 12. **`Trivia.Cliente`** y **`Trivia.Receptor`**: Módulos del nodo cliente. `Trivia.Cliente` traduce comandos de consola en peticiones al servidor remoto y `Trivia.Receptor` corre en un proceso separado (con historial acotado a las 100 notificaciones más recientes) para recibir e imprimir notificaciones asíncronas sin bloquear la lectura del teclado.
+13. **`mix trivia.servidor`** y **`mix trivia.cliente`** (con `Trivia.CLI`): tareas Mix que levantan el nodo distribuido (nombre, cookie y `epmd`), fijan el rol con `TRIVIA_ROLE` antes de iniciar la aplicación y luego arrancan el servidor o abren la consola del cliente, sin pasar por IEx.
 
 ---
 
@@ -234,8 +265,8 @@ Sesión cerrada correctamente.
 
 Durante el desarrollo de este proyecto se utilizaron herramientas de asistencia de inteligencia artificial con los siguientes propósitos:
 
-* **Herramienta utilizada**: Asistente de codificación con IA (Antigravity / LLM).
+* **Herramienta utilizada**: Asistente de codificación con IA (Antigravity / LLM) Y Claude Code CLI.
 * **Propósito**:
-  * Estructuración incremental por hitos de los módulos Elixir/OTP (`GenServer`, `Supervisor`, `DynamicSupervisor`) siguiendo la arquitectura definida en `proyecto20262.md`.
+  * Estructuración incremental por hitos de los módulos Elixir/OTP (`GenServer`, `Supervisor`, `DynamicSupervisor`) siguiendo la arquitectura.
   * Generación y endurecimiento de pruebas automatizadas con `ExUnit` y nodos distribuidos con `:peer`.
   * Revisión de casos borde de concurrencia (temporizadores de ronda, persistencia recuperable e historial acotado de notificaciones) y redacción de documentación técnica.
