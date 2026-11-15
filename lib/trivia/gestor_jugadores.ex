@@ -255,7 +255,7 @@ defmodule Trivia.GestorJugadores do
     try do
       case Persistencia.listar_usuarios(persistencia) do
         usuarios when is_list(usuarios) ->
-          case Enum.find(usuarios, &(to_string(&1["usuario"] || &1["nombre"]) == usuario)) do
+          case Enum.find(usuarios, fn u -> to_string(u["usuario"] || u["nombre"]) == usuario end) do
             nil -> registrar(persistencia, usuario, clave)
             %{"clave" => guardada} -> verificar_clave(to_string(guardada), clave)
             _sin_clave -> {:error, :clave_incorrecta}

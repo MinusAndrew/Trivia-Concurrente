@@ -634,7 +634,7 @@ defmodule Trivia.Partida do
                 respuesta: nil
               })
 
-            punt = Map.update(punt_acc, jugador, puntos, &(&1 + puntos))
+            punt = Map.update(punt_acc, jugador, puntos, fn actual -> actual + puntos end)
             {pts, det, punt}
 
           %{respuesta: r, segundos_restantes: s_rest} ->
@@ -659,7 +659,7 @@ defmodule Trivia.Partida do
                   respuesta: r
                 })
 
-              punt = Map.update(punt_acc, jugador, puntos, &(&1 + puntos))
+              punt = Map.update(punt_acc, jugador, puntos, fn actual -> actual + puntos end)
               {pts, det, punt}
             else
               puntos =
@@ -680,7 +680,7 @@ defmodule Trivia.Partida do
                   respuesta: r
                 })
 
-              punt = Map.update(punt_acc, jugador, puntos, &(&1 + puntos))
+              punt = Map.update(punt_acc, jugador, puntos, fn actual -> actual + puntos end)
               {pts, det, punt}
             end
         end
@@ -858,11 +858,11 @@ defmodule Trivia.Partida do
   # envía directamente: `send` a un proceso muerto es inofensivo y `:noconnect`
   # evita que la partida intente reconectarse a un nodo de cliente caído.
   defp notificar(state, payload) do
-    Enum.each(state.listeners, &enviar_seguro(&1, payload))
+    Enum.each(state.listeners, fn pid -> enviar_seguro(pid, payload) end)
   end
 
   defp notificar_bots(state, payload) do
-    Enum.each(Map.values(state.bot_pids), &enviar_seguro(&1, payload))
+    Enum.each(Map.values(state.bot_pids), fn pid -> enviar_seguro(pid, payload) end)
   end
 
   defp enviar_seguro(pid, payload) when is_pid(pid) do

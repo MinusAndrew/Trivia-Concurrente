@@ -565,7 +565,7 @@ defmodule Trivia.DistribuidoTest do
 
         # La partida en curso de Pedro se cerró y persistió en results.log (sección 6.5)
         historial = Persistencia.obtener_historial(pers)
-        assert Enum.any?(historial, &(&1["id"] == id1))
+        assert Enum.any?(historial, fn registro -> registro["id"] == id1 end)
 
         # Carlos y el servidor siguen operando sin ninguna afectación
         assert "carlos" in GestorJugadores.usuarios_conectados(gj)
@@ -666,7 +666,10 @@ defmodule Trivia.DistribuidoTest do
         refute "marta" in GestorJugadores.usuarios_conectados(gj)
 
         historial = Persistencia.obtener_historial(pers)
-        assert Enum.any?(historial, &(&1["id"] == id and Map.has_key?(&1["puntajes"], "marta")))
+
+        assert Enum.any?(historial, fn registro ->
+                 registro["id"] == id and Map.has_key?(registro["puntajes"], "marta")
+               end)
       after
         detener_nodo_cliente(peer)
       end
@@ -899,7 +902,7 @@ defmodule Trivia.DistribuidoTest do
 
           # La partida previa de "pedro" fue cerrada y persistida según sección 6.5
           historial = Persistencia.obtener_historial(pers)
-          assert Enum.any?(historial, &(&1["id"] == id_previa))
+          assert Enum.any?(historial, fn registro -> registro["id"] == id_previa end)
 
           # Otro cliente c2 puede conectarse con el usuario original "pedro" y crear partida
           assert {:ok, {:conectado, "pedro", :autenticado}} =

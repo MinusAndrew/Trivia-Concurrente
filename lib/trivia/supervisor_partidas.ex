@@ -43,6 +43,6 @@ defmodule Trivia.SupervisorPartidas do
   def listar_hijos(supervisor \\ __MODULE__) do
     DynamicSupervisor.which_children(supervisor)
     |> Enum.map(fn {_, pid, _, _} -> pid end)
-    |> Enum.filter(&is_pid/1)
+    |> Enum.filter(fn pid -> is_pid(pid) end)
   end
 end

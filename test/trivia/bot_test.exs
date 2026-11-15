@@ -331,13 +331,13 @@ defmodule Trivia.BotTest do
       assert is_list(ranking)
       assert length(ranking) == 3
 
-      jugadores_ranking = Enum.map(ranking, & &1.jugador)
+      jugadores_ranking = Enum.map(ranking, fn entrada -> entrada.jugador end)
       assert "pedro" in jugadores_ranking
       assert "bot_1" in jugadores_ranking
       assert "bot_2" in jugadores_ranking
 
       # Puestos están asignados de 1 a 3
-      puestos = Enum.map(ranking, & &1.puesto)
+      puestos = Enum.map(ranking, fn entrada -> entrada.puesto end)
       assert 1 in puestos
     end
   end
@@ -399,7 +399,7 @@ defmodule Trivia.BotTest do
       ]
 
       ranking = Nivel.ranking_historico(historial)
-      jugadores = Enum.map(ranking, & &1.jugador)
+      jugadores = Enum.map(ranking, fn entrada -> entrada.jugador end)
 
       assert "pedro" in jugadores
       assert "carlos" in jugadores
@@ -424,7 +424,7 @@ defmodule Trivia.BotTest do
       estado = Partida.obtener_estado(pid)
       bot_pids = Map.values(estado.bot_pids)
       assert length(bot_pids) == 2
-      assert Enum.all?(bot_pids, &Process.alive?/1)
+      assert Enum.all?(bot_pids, fn pid -> Process.alive?(pid) end)
 
       # Iniciar y responder para terminar la partida
       :ok = Partida.iniciar_partida(pid)
@@ -451,7 +451,7 @@ defmodule Trivia.BotTest do
 
       estado = Partida.obtener_estado(pid)
       bot_pids = Map.values(estado.bot_pids)
-      assert Enum.all?(bot_pids, &Process.alive?/1)
+      assert Enum.all?(bot_pids, fn pid -> Process.alive?(pid) end)
 
       assert :ok = GestorPartidas.abandonar_partida(g, "pedro")
       Process.sleep(50)
@@ -490,7 +490,7 @@ defmodule Trivia.BotTest do
       estado2 = Partida.obtener_estado(pid2)
       assert estado2.id == id2
       assert length(estado2.jugadores) == 3
-      assert Enum.all?(Map.values(estado2.bot_pids), &Process.alive?/1)
+      assert Enum.all?(Map.values(estado2.bot_pids), fn pid -> Process.alive?(pid) end)
 
       # El GestorPartidas sigue perfectamente operativo
       assert {:ok, ^id2} = GestorPartidas.obtener_partida(g, "carlos")

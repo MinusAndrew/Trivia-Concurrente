@@ -158,8 +158,8 @@ defmodule Trivia.Nivel do
           else
             pts_int = if is_number(pts), do: round(pts), else: 0
 
-            {Map.update(pts_acc, jugador_str, pts_int, &(&1 + pts_int)),
-             Map.update(part_acc, jugador_str, 1, &(&1 + 1))}
+            {Map.update(pts_acc, jugador_str, pts_int, fn acumulado -> acumulado + pts_int end),
+             Map.update(part_acc, jugador_str, 1, fn partidas -> partidas + 1 end)}
           end
         end)
       end)
@@ -207,7 +207,7 @@ defmodule Trivia.Nivel do
         total = Enum.sum(puntos)
         %{tema: tema, puntaje: total, nivel: calcular(total)}
       end)
-      |> Enum.sort_by(& &1.tema)
+      |> Enum.sort_by(fn entrada -> entrada.tema end)
 
     %{
       usuario: usuario_str,
@@ -225,9 +225,9 @@ defmodule Trivia.Nivel do
 
     temas =
       records
-      |> Enum.map(&extract_tema/1)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.map(&to_string/1)
+      |> Enum.map(fn record -> extract_tema(record) end)
+      |> Enum.reject(fn tema -> is_nil(tema) end)
+      |> Enum.map(fn tema -> to_string(tema) end)
       |> Enum.uniq()
 
     cond do

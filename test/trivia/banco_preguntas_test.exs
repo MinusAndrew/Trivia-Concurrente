@@ -154,19 +154,22 @@ defmodule Trivia.BancoPreguntasTest do
     test "filtrar_por_tema retorna únicamente preguntas del tema pedido", %{banco: b} do
       ciencias = BancoPreguntas.filtrar_por_tema(b, "ciencia")
       assert length(ciencias) == 30
-      assert Enum.all?(ciencias, &(&1["tema"] == "ciencia"))
+      assert Enum.all?(ciencias, fn pregunta -> pregunta["tema"] == "ciencia" end)
     end
 
     test "filtrar_por_nivel retorna únicamente preguntas del nivel pedido", %{banco: b} do
       basicas = BancoPreguntas.filtrar_por_nivel(b, "basico")
       assert length(basicas) == 20
-      assert Enum.all?(basicas, &(&1["nivel"] == "basico"))
+      assert Enum.all?(basicas, fn pregunta -> pregunta["nivel"] == "basico" end)
     end
 
     test "filtrar/3 combina tema y nivel", %{banco: b} do
       resultado = BancoPreguntas.filtrar(b, "ciencia", "intermedio")
       assert length(resultado) == 10
-      assert Enum.all?(resultado, &(&1["tema"] == "ciencia" and &1["nivel"] == "intermedio"))
+
+      assert Enum.all?(resultado, fn pregunta ->
+               pregunta["tema"] == "ciencia" and pregunta["nivel"] == "intermedio"
+             end)
     end
 
     test "listar_temas devuelve temas únicos", %{banco: b} do
@@ -187,14 +190,14 @@ defmodule Trivia.BancoPreguntasTest do
       assert length(seleccion) == 5
 
       # Sin duplicados
-      ids = Enum.map(seleccion, & &1["id"])
+      ids = Enum.map(seleccion, fn pregunta -> pregunta["id"] end)
       assert length(Enum.uniq(ids)) == 5
     end
 
     test "respeta el reparto proporcional y ordena de menor a mayor dificultad", %{banco: b} do
       # Nivel basico con 5 preguntas: 4 básicas y 1 intermedia
       assert {:ok, seleccion} = BancoPreguntas.sortear_preguntas(b, "ciencia", :basico, 5)
-      niveles = Enum.map(seleccion, & &1["nivel"])
+      niveles = Enum.map(seleccion, fn pregunta -> pregunta["nivel"] end)
 
       assert niveles == ["basico", "basico", "basico", "basico", "intermedio"]
     end
@@ -203,11 +206,11 @@ defmodule Trivia.BancoPreguntasTest do
       banco: b
     } do
       assert {:ok, seleccion} = BancoPreguntas.sortear_preguntas(b, "ciencia", :intermedio, 10)
-      niveles = Enum.map(seleccion, & &1["nivel"])
+      niveles = Enum.map(seleccion, fn pregunta -> pregunta["nivel"] end)
 
-      assert Enum.count(niveles, &(&1 == "basico")) == 2
-      assert Enum.count(niveles, &(&1 == "intermedio")) == 6
-      assert Enum.count(niveles, &(&1 == "avanzado")) == 2
+      assert Enum.count(niveles, fn nivel -> nivel == "basico" end) == 2
+      assert Enum.count(niveles, fn nivel -> nivel == "intermedio" end) == 6
+      assert Enum.count(niveles, fn nivel -> nivel == "avanzado" end) == 2
 
       # Orden de menor a mayor dificultad
       assert niveles == [
@@ -229,15 +232,15 @@ defmodule Trivia.BancoPreguntasTest do
       {:ok, s1} = BancoPreguntas.sortear_preguntas(b, "ciencia", :basico, 5)
       {:ok, s2} = BancoPreguntas.sortear_preguntas(b, "ciencia", :basico, 5)
 
-      ids1 = Enum.map(s1, & &1["id"])
-      _ids2 = Enum.map(s2, & &1["id"])
+      ids1 = Enum.map(s1, fn pregunta -> pregunta["id"] end)
+      _ids2 = Enum.map(s2, fn pregunta -> pregunta["id"] end)
 
       # Al menos una de 10 ejecuciones debe diferir si hay aleatoriedad
       # (hacemos hasta 5 sorteos para evitar falsos negativos por pura casualidad)
       distintas =
         Enum.any?(1..10, fn _ ->
           {:ok, s} = BancoPreguntas.sortear_preguntas(b, "ciencia", :basico, 5)
-          Enum.map(s, & &1["id"]) != ids1
+          Enum.map(s, fn pregunta -> pregunta["id"] end) != ids1
         end)
 
       assert distintas
