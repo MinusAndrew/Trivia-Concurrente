@@ -22,8 +22,10 @@ defmodule Trivia.GestorPartidas do
   require Logger
 
   @primer_id 1001
+  @espera_reinicio_ms 1_000
 
   @aviso_reinicio_plantilla "La partida %{id} falló y se reinició sin su progreso. Agrega los bots y ejecuta start_game para jugar de nuevo."
+  @aviso_cierre_plantilla "La partida %{id} falló y no pudo reiniciarse. Ya puedes crear una nueva partida."
 
   # ── Public API ──────────────────────────────────────────────────────
 
@@ -33,6 +35,8 @@ defmodule Trivia.GestorPartidas do
     * `:name` – Nombre registrado (por defecto `__MODULE__`).
     * `:supervisor` – Nombre o PID del DynamicSupervisor (por defecto `Trivia.SupervisorPartidas`).
     * `:persistencia` – Nombre o PID de Persistencia (por defecto `Trivia.Persistencia`).
+    * `:espera_reinicio_ms` – Tiempo que se espera el reinicio de una partida caída
+      antes de descartarla (por defecto #{@espera_reinicio_ms} ms).
   """
   def start_link(opts \\ []) do
     {name, genserver_opts} = Keyword.pop(opts, :name, __MODULE__)
@@ -208,6 +212,7 @@ defmodule Trivia.GestorPartidas do
       supervisor: supervisor,
       persistencia: persistencia,
       contador_id: contador_inicial(persistencia, supervisor),
+      espera_reinicio_ms: Keyword.get(opts, :espera_reinicio_ms, @espera_reinicio_ms),
       partidas: %{},
       jugador_partida: %{},
       monitores: %{}
@@ -340,22 +345,14 @@ defmodule Trivia.GestorPartidas do
       {:ok, id} ->
         case Map.fetch(state.partidas, id) do
           {:ok, info} ->
-            case Trivia.Partida.abandonar_partida(info.pid, jugador) do
+            case abandonar_seguro(info.pid, jugador) do
               :ok ->
                 # Limpiar registro del jugador y partida solo si se completó exitosamente
-                Process.demonitor(info.ref, [:flush])
-                new_partidas = Map.delete(state.partidas, id)
-                new_jugadores = Map.delete(state.jugador_partida, jugador)
-                new_monitores = Map.delete(state.monitores, info.ref)
+                {:reply, :ok, quitar_partida(state, id, info)}
 
-                new_state = %{
-                  state
-                  | partidas: new_partidas,
-                    jugador_partida: new_jugadores,
-                    monitores: new_monitores
-                }
-
-                {:reply, :ok, new_state}
+              {:error, :partida_caida} ->
+                # El proceso ya no existe: la entrada quedó obsoleta y se descarta
+                {:reply, {:error, :partida_no_encontrada}, quitar_partida(state, id, info)}
 
               {:error, _reason} = err ->
                 {:reply, err, state}
@@ -435,28 +432,21 @@ defmodule Trivia.GestorPartidas do
       {id, remaining_monitores} ->
         case Map.fetch(state.partidas, id) do
           {:ok, info} ->
-            if reason in [:normal, :shutdown] do
-              # Terminación normal o voluntaria: remover la partida definitivamente
-              new_partidas = Map.delete(state.partidas, id)
-
-              new_jugadores =
-                case Map.fetch(state.jugador_partida, info.creador) do
-                  {:ok, ^id} -> Map.delete(state.jugador_partida, info.creador)
-                  _ -> state.jugador_partida
-                end
-
-              new_state = %{
-                state
-                | partidas: new_partidas,
-                  jugador_partida: new_jugadores,
-                  monitores: remaining_monitores
-              }
-
-              {:noreply, new_state}
+            if terminacion_normal?(reason) do
+              # Terminación normal o voluntaria (`:transient` no la reinicia):
+              # remover la partida definitivamente
+              {:noreply, quitar_partida(%{state | monitores: remaining_monitores}, id, info)}
             else
-              # Terminación anormal: DynamicSupervisor reiniciará la partida.
-              # Mantenemos el registro del creador para que conserve su pertenencia
-              # a la partida cuando se restablezca.
+              # Terminación anormal: DynamicSupervisor reiniciará la partida y su
+              # nuevo PID llegará por `reportar_pid`. Mantenemos el registro del
+              # creador mientras tanto; si el reinicio no llega (p. ej. el
+              # supervisor agotó su presupuesto y murió) se descarta tras la espera.
+              Process.send_after(
+                self(),
+                {:verificar_reinicio, id, info.pid},
+                state.espera_reinicio_ms
+              )
+
               {:noreply, %{state | monitores: remaining_monitores}}
             end
 
@@ -466,7 +456,49 @@ defmodule Trivia.GestorPartidas do
     end
   end
 
+  def handle_info({:verificar_reinicio, id, pid_caido}, state) do
+    case Map.fetch(state.partidas, id) do
+      {:ok, %{pid: ^pid_caido} = info} ->
+        # Ningún `reportar_pid` reemplazó al proceso caído: la partida no se reinició
+        notificar_cierre(info.cliente_pid, id)
+        {:noreply, quitar_partida(state, id, info)}
+
+      _ ->
+        {:noreply, state}
+    end
+  end
+
   # ── Helpers privados ────────────────────────────────────────────────
+
+  defp terminacion_normal?(reason),
+    do: reason in [:normal, :shutdown] or match?({:shutdown, _}, reason)
+
+  defp quitar_partida(state, id, info) do
+    Process.demonitor(info.ref, [:flush])
+
+    new_jugadores =
+      case Map.fetch(state.jugador_partida, info.creador) do
+        {:ok, ^id} -> Map.delete(state.jugador_partida, info.creador)
+        _ -> state.jugador_partida
+      end
+
+    %{
+      state
+      | partidas: Map.delete(state.partidas, id),
+        jugador_partida: new_jugadores,
+        monitores: Map.delete(state.monitores, info.ref)
+    }
+  end
+
+  # Una llamada a una partida muerta sale con :exit y tumbaría al gestor.
+  defp abandonar_seguro(pid, jugador) do
+    Trivia.Partida.abandonar_partida(pid, jugador)
+  catch
+    :exit, _reason ->
+      if Process.alive?(pid),
+        do: {:error, :partida_no_responde},
+        else: {:error, :partida_caida}
+  end
 
   defp resolver_nivel(state, creador, tema) do
     case obtener_historial_seguro(state.persistencia) do
@@ -596,6 +628,14 @@ defmodule Trivia.GestorPartidas do
     # remotos, así que se envía directamente (seguro aunque el proceso no exista).
     mensaje = String.replace(@aviso_reinicio_plantilla, "%{id}", id)
     Process.send(cliente_pid, {:partida_reiniciada, id, mensaje}, [:noconnect])
+    Process.send(cliente_pid, {:notificacion, mensaje}, [:noconnect])
+    :ok
+  end
+
+  defp notificar_cierre(nil, _id), do: :ok
+
+  defp notificar_cierre(cliente_pid, id) when is_pid(cliente_pid) do
+    mensaje = String.replace(@aviso_cierre_plantilla, "%{id}", id)
     Process.send(cliente_pid, {:notificacion, mensaje}, [:noconnect])
     :ok
   end
