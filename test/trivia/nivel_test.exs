@@ -65,7 +65,7 @@ defmodule Trivia.NivelTest do
     end
 
     test "solo acepta el orden (nivel, total)" do
-      assert_raise FunctionClauseError, fn -> Trivia.Nivel.reparto(10, :basico) end
+      assert_raise FunctionClauseError, fn -> apply(Trivia.Nivel, :reparto, [10, :basico]) end
     end
   end
 
