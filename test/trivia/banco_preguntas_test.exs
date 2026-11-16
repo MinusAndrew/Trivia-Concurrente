@@ -312,10 +312,10 @@ defmodule Trivia.BancoPreguntasTest do
 
       # Carga a través de Persistencia usando el módulo BancoPreguntas
       assert {:ok, preguntas} = BancoPreguntas.cargar_banco(name)
-      assert length(preguntas) == 96
+      assert length(preguntas) == 120
 
       temas = BancoPreguntas.listar_temas(preguntas)
-      assert Enum.sort(temas) == ["ciencias", "geografia", "historia", "matematicas"]
+      assert Enum.sort(temas) == ["ciencias", "geografia", "historia", "matematicas", "pokemon"]
 
       # Verifica que se pueda realizar un sorteo exitoso
       assert {:ok, seleccion} =
@@ -343,7 +343,7 @@ defmodule Trivia.BancoPreguntasTest do
       # El estado interno de Persistencia ya tiene el banco validado tras init/1
       pers_state = :sys.get_state(pid)
       assert {:ok, cached} = pers_state.banco_preguntas
-      assert length(cached) == 96
+      assert length(cached) == 120
 
       assert {:ok, ^cached} = BancoPreguntas.cargar_banco(name)
     end
@@ -369,7 +369,7 @@ defmodule Trivia.BancoPreguntasTest do
 
       # Múltiples consultas y sorteos siguen funcionando desde la caché en memoria
       assert {:ok, preguntas} = BancoPreguntas.cargar_banco(name)
-      assert length(preguntas) == 96
+      assert length(preguntas) == 120
 
       assert {:ok, sel1} = BancoPreguntas.sortear_preguntas(name, "ciencias", :basico, 5)
       assert {:ok, sel2} = BancoPreguntas.sortear_preguntas(name, "historia", :avanzado, 5)

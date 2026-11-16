@@ -670,5 +670,173 @@
     "enunciado": "¿Qué país tiene frontera tanto con el océano Atlántico como con el Índico?",
     "opciones": {"A": "Mozambique", "B": "Sudáfrica", "C": "Tanzania", "D": "Nigeria"},
     "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿De qué tipo es Pikachu?",
+    "opciones": {"A": "Fuego", "B": "Agua", "C": "Eléctrico", "D": "Planta"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿Cuál es el Pokémon inicial de tipo Fuego en Pokémon Rojo y Azul?",
+    "opciones": {"A": "Charmander", "B": "Squirtle", "C": "Bulbasaur", "D": "Cyndaquil"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿En qué Pokémon evoluciona Squirtle?",
+    "opciones": {"A": "Blastoise", "B": "Wartortle", "C": "Totodile", "D": "Psyduck"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿Cómo se llama el objeto con el que se atrapan los Pokémon?",
+    "opciones": {"A": "Poción", "B": "Revivir", "C": "Pokéball", "D": "Baya"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿Qué Pokémon es famoso por dormir bloqueando el camino?",
+    "opciones": {"A": "Slowpoke", "B": "Jigglypuff", "C": "Psyduck", "D": "Snorlax"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿Quién es el protagonista del anime de Pokémon?",
+    "opciones": {"A": "Ash Ketchum", "B": "Gary Oak", "C": "Brock", "D": "Tracey"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿Qué tipo es súper efectivo contra el tipo Fuego?",
+    "opciones": {"A": "Planta", "B": "Agua", "C": "Bicho", "D": "Hielo"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "basico",
+    "enunciado": "¿Qué profesor entrega el primer Pokémon en la región de Kanto?",
+    "opciones": {"A": "Elm", "B": "Birch", "C": "Rowan", "D": "Oak"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿En qué Pokémon evoluciona Eevee con una Piedra Agua?",
+    "opciones": {"A": "Jolteon", "B": "Vaporeon", "C": "Flareon", "D": "Espeon"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuántos Pokémon tiene la Pokédex de la primera generación?",
+    "opciones": {"A": "150", "B": "151", "C": "152", "D": "251"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué Pokémon legendario aparece en la portada de Pokémon Oro?",
+    "opciones": {"A": "Lugia", "B": "Suicune", "C": "Ho-Oh", "D": "Entei"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué Pokémon tiene el número 1 en la Pokédex Nacional?",
+    "opciones": {"A": "Bulbasaur", "B": "Charmander", "C": "Squirtle", "D": "Pikachu"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué tipo es inmune a los ataques de tipo Normal?",
+    "opciones": {"A": "Fantasma", "B": "Roca", "C": "Acero", "D": "Psíquico"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Cuál es la evolución final de Charmander?",
+    "opciones": {"A": "Charmeleon", "B": "Arcanine", "C": "Typhlosion", "D": "Charizard"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Qué organización villana aparece en Pokémon Rojo y Azul?",
+    "opciones": {"A": "Team Aqua", "B": "Team Galaxia", "C": "Team Rocket", "D": "Team Plasma"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "intermedio",
+    "enunciado": "¿Quién es la líder del gimnasio de Ciudad Celeste en Kanto?",
+    "opciones": {"A": "Erika", "B": "Misty", "C": "Sabrina", "D": "Blaine"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué Pokémon ocupa el índice interno #1 en el código de Pokémon Rojo y Azul?",
+    "opciones": {"A": "Bulbasaur", "B": "Mew", "C": "Rhydon", "D": "Kangaskhan"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué tipo se introdujo en la sexta generación (Pokémon X e Y)?",
+    "opciones": {"A": "Siniestro", "B": "Acero", "C": "Hada", "D": "Dragón"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué habilidad de Shedinja hace que solo lo dañen los ataques súper efectivos?",
+    "opciones": {"A": "Superguarda", "B": "Levitación", "C": "Robustez", "D": "Cuerpo Puro"},
+    "respuesta": "A"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué Pokémon tiene el número 151 en la Pokédex Nacional?",
+    "opciones": {"A": "Mewtwo", "B": "Mew", "C": "Celebi", "D": "Dragonite"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿De qué tipo era Magnemite en la primera generación, antes de existir el tipo Acero?",
+    "opciones": {"A": "Eléctrico/Acero", "B": "Eléctrico", "C": "Acero", "D": "Eléctrico/Volador"},
+    "respuesta": "B"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿En qué Pokémon evoluciona Feebas?",
+    "opciones": {"A": "Gyarados", "B": "Kingdra", "C": "Luvdisc", "D": "Milotic"},
+    "respuesta": "D"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿En qué región transcurren Pokémon Sol y Luna?",
+    "opciones": {"A": "Kalos", "B": "Galar", "C": "Alola", "D": "Teselia"},
+    "respuesta": "C"
+  },
+  {
+    "tema": "pokemon",
+    "nivel": "avanzado",
+    "enunciado": "¿Qué Pokémon fue creado a partir del ADN de Mew en la Mansión Pokémon de isla Canela?",
+    "opciones": {"A": "Mewtwo", "B": "Ditto", "C": "Deoxys", "D": "Porygon"},
+    "respuesta": "A"
   }
 ]
